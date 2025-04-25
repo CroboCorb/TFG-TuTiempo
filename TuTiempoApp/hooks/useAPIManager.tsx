@@ -1,0 +1,151 @@
+import axios from "axios";
+import encriptar from "./usePasswordCrypt";
+
+// ========== CONSTANTES ==========
+
+const API_URL = "http://192.168.18.5:8000";
+
+const API_LISTADOCREDENCIALES = API_URL + "/credenciales/";
+const API_LISTADOTOKENS = API_URL + "/tokens/";
+
+const API_LOGIN = API_URL + "/credenciales/login";
+const API_REGISTRO = API_URL + "/credenciales/registrar";
+
+const API_METEOROLOGIA = API_URL + "/meteorologia/";
+
+// ========== MÉTODOS ==========
+
+/**
+ * Solicita a la API todas las credenciales almacenadas en la BBDD
+ * @param token Token JWT de autorización
+ * @returns JSON con listado de credenciales, aviso en caso de error
+ */
+export const listadoCredenciales_API = async(token: string) => {
+  try {
+    const respuesta = await axios.get(
+      API_LISTADOCREDENCIALES,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { token: token },
+      }
+    );
+
+    return respuesta;
+  } catch (err: any) {
+    if (err.status === 503)
+      return {
+        status: 503,
+        mensaje: "No se pudo establecer conexión con el servidor.",
+      };
+    else if (err.status === 404)
+      return { status: 404, mensaje: "Datos no encontrados." };
+  }
+}
+
+/**
+ * Solicita a la API todos los tokens almacenados en la BBDD
+ * @param token Token JWT de autorización
+ * @returns JSON con listado de tokens, aviso en caso de error
+ */
+export const listadoTokens_API = async(token: string) => {
+  try {
+    const respuesta = await axios.get(
+      API_LISTADOTOKENS,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { token: token },
+      }
+    );
+
+    return respuesta;
+  } catch (err: any) {
+    if (err.status === 503)
+      return {
+        status: 503,
+        mensaje: "No se pudo establecer conexión con el servidor.",
+      };
+    else if (err.status === 404)
+      return { status: 404, mensaje: "Datos no encontrados." };
+  }
+}
+
+/**
+ * Método para la comprobación del inicio de sesión
+ * @param username Nombre del usuario
+ * @param password Contraseña del usuario, encriptada en SHA-256
+ * @returns Token del usuario si el logueo es correcto, mensaje de error en caso contrario
+ */
+export const iniciarSesion_API = async (username: string, password: string) => {
+  try {
+    const respuesta = await axios.post(
+      API_LOGIN,
+      { username, password },
+      {
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+
+    return respuesta;
+  } catch (err: any) {
+    if (err.status === 503)
+      return {
+        status: 503,
+        mensaje: "No se pudo establecer conexión con el servidor.",
+      };
+    else if (err.status === 404)
+      return { status: 404, mensaje: "Datos no encontrados." };
+  }
+};
+
+/**
+ * Método para registrar a un nuevo administrador
+ * @param username Nombre del usuario administrador
+ * @param password Contraseña del usuario administrador, encriptada en SHA-256
+ * @param userid ID del usuario asociado
+ * @returns Mensaje de respuesta
+ */
+export const registrarUsuario_API = async (
+  token: string,
+  username: string,
+  password: string
+) => {
+  try {
+    const respuesta = await axios.put(
+      API_REGISTRO,
+      { username: username, password: encriptar(password) },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    return respuesta;
+  } catch (err: any) {
+    if (err.message === "Network Error")
+      return {
+        status: 503,
+        mensaje: "No se pudo establecer conexión con el servidor.",
+      };
+  }
+};
+
+export const datosMeteorologia_API = async (token: string) => {
+  try {
+    const respuesta = await axios.get(
+      API_METEOROLOGIA,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { token: token },
+      }
+    );
+
+    return respuesta;
+  } catch (err: any) {
+    if (err.status === 503)
+      return {
+        status: 503,
+        mensaje: "No se pudo establecer conexión con el servidor.",
+      };
+    else if (err.status === 404)
+      return { status: 404, mensaje: "Datos no encontrados." };
+  }
+};
