@@ -1,20 +1,23 @@
 from datetime import datetime, timedelta
-from fastapi import FastAPI, Depends, HTTPException, Query, Request
+from fastapi import Body, FastAPI, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from typing import Annotated
 
 from pydantic import UUID4
 from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import os
 import jwt
+import requests
 
 import database
 import modelsDB
 import modelsBase
 
+SECRET_KEY = os.getenv("SECRET_KEY", "mysecret")
 ALGORITHM = "HS256"
 
 app = FastAPI()
@@ -24,7 +27,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -38,18 +41,25 @@ async def get_db():
 db_dependency = Annotated[AsyncSession, Depends(get_db)]
 
 def create_tables():
-    sync_engine = create_engine(os.getenv('DATABASE_URL_SYNC'))
+    sync_engine = create_engine(os.getenv('BBDD_SYNC'))
     modelsDB.Base.metadata.create_all(bind=sync_engine)
+
+    with Session(sync_engine) as session:
+        if not session.query(modelsDB.Credentials).first():
+            adminDefecto = modelsDB.Credentials(username='dbrusev', password=os.getenv('INITIAL_ADMIN_PWD'))
+            session.add(adminDefecto)
+            session.commit()
+
     sync_engine.dispose()
 
 create_tables()
 
-# =============== VERIFICACIÓN DE JWT ===============
+# =============== VERIFICACIÓN DE JWT Y KEYS ===============
 
 async def crearTokenJWT(user_id: UUID4):
     expire = datetime.now() + timedelta(weeks=2)
     payload = {"sub": str(user_id), "exp": expire}
-    token = jwt.encode(payload, algorithm=ALGORITHM)
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
     return token, expire
 
 async def verificarTokenJWT(req: Request, db: db_dependency):
@@ -57,56 +67,86 @@ async def verificarTokenJWT(req: Request, db: db_dependency):
     if not token:
         raise HTTPException( status_code = 401, detail = "Sin cabecera de autorización" )
     
-    resultado = await db.execute(select(modelsDB.Token).where(modelsDB.Token.token == token.replace("Bearer ", "")))
+    resultado = await db.execute(select(modelsDB.SessionToken).where(modelsDB.SessionToken.token == token.strip().replace("Bearer ", "")))
     token_encontrado = resultado.scalars().first()
     if (not token_encontrado):
         raise HTTPException( status_code = 401, detail = "No autorizado" )
     
     return True
 
-# =============== CONTROLADORES DE FASTAPI ===============
+# ============================================================
 
 @app.get(
-    "/usuarios/",
-    summary="Obtener información de un usuario",
-    description="Devuelve la información de un usuario según la UUID recibida.",
-    tags=["Usuarios"]
+    "/credenciales",
+    summary="Listado de credenciales",
+    description="Muestra el listado de las credenciales registradas",
+    tags=["Credenciales"]
 )
-async def infoUsuario(db: db_dependency, id: UUID4 = Query(), autorizado: bool = Depends(verificarTokenJWT)):
-    resultado = await db.execute(select(modelsDB.Credentials).filter(modelsDB.User.id == id))
-    usuario = resultado.scalars().first()
-    if not usuario:
-        raise HTTPException( status_code = 404, detail = 'Usuario no existente.' )
-    return usuario
+async def listarCredenciales(db: db_dependency, tokenValido: bool = Depends(verificarTokenJWT)):
+    try:
+        resultado = await db.execute(select(modelsDB.Credentials))
+        return resultado.scalars().all()
+    except Exception as e:
+        raise HTTPException( status_code = 400, detail = 'Error en la recogida de credenciales.' )
 
 @app.post(
-    "/usuarios/login",
+    "/credenciales/login",
     summary="Inicio de sesión",
-    description="Controla el inicio de sesión de un administrador, devolviendo sus datos en caso de "
-    "inicio de sesión correcto, o un mensaje de error en caso contrario.",
-    tags=["Usuarios"]
+    description="Controla el inicio de sesión de un administrador, devolviendo el token " 
+    "en caso de inicio de sesión correcto, o un mensaje de error en caso contrario.",
+    tags=["Credenciales"]
 )
-async def iniciarSesion(username: str, password: str, db: db_dependency):
+async def iniciarSesion_API(db: db_dependency, username: str = Body(), password: str = Body()):
     resultado = await db.execute(select(modelsDB.Credentials).filter((modelsDB.Credentials.username == username) & (modelsDB.Credentials.password == password)))
     usuario = resultado.scalars().first()
     if not usuario:
         raise HTTPException( status_code = 404, detail = 'Login incorrecto.' )
-    return usuario
+    
+    resultado = await db.execute(select(modelsDB.SessionToken).where(modelsDB.SessionToken.userid == usuario.id))
+    token = resultado.scalars().first()
+    if token:
+        await db.delete(token)
+        await db.commit()
+
+    token, expires_at = await crearTokenJWT(usuario.id)
+    db.add(modelsDB.SessionToken(token = token, expiry_date = expires_at, userid = usuario.id))
+    await db.commit()
+
+    return { "token": token, "detail": "Inicio de sesión correcto" }
 
 @app.put(
-    "/usuarios/registro",
-    summary="Registro de nuevo usuario",
-    description="Gestiona el registro de un nuevo usuario administrador",
-    tags=["Usuarios"]
+    "/credenciales/registrar",
+    summary="Registro de administrador",
+    description="Gestiona el registro de un nuevo administrador",
+    tags=["Credenciales"]
 )
-async def registrarUsuario(user: modelsBase.Credentials, db: db_dependency, autorizado: bool = Depends(verificarTokenJWT)):
+async def registrarUsuario(db: db_dependency, user: modelsBase.Credentials = Body(), tokenValido: bool = Depends(verificarTokenJWT)):
     try:
-        db.add(user)
+        db.add(modelsDB.Credentials(
+            username = user.username,
+            password = user.password
+        ))
         await db.commit()
     except Exception as e:
-        raise HTTPException( status_code = 400, detail = 'Error de registro del usuario.' )
+        print(e)
+        raise HTTPException( status_code = 400, detail = 'Error de registro del administrador.' )
     
     return { "detail": "Registro realizado correctamente." }
+
+@app.get(
+    "/tokens",
+    summary="Listado de tokens",
+    description="Muestra el listado de tokens registrados",
+    tags=["Token"]
+)
+async def listarTokens(db: db_dependency, tokenValido: bool = Depends(verificarTokenJWT)):
+    try:
+        resultado = await db.execute(select(modelsDB.SessionToken))
+        return resultado.scalars().all()
+    except Exception as e:
+        raise HTTPException( status_code = 400, detail = 'Error en la recogida de tokens.' )
+
+# ============================================================
 
 @app.get(
     "/meteorologia/",
@@ -114,5 +154,10 @@ async def registrarUsuario(user: modelsBase.Credentials, db: db_dependency, auto
     description="Controlador encargado de procesar la información solicitada y enviarla a la API maestra.",
     tags=["Meteorología"]
 )
-async def infoMeteorología(db: db_dependency, autorizado: bool = Depends(verificarTokenJWT)):
-    return { 'status': 200, 'detail': 'Por implementar' }
+async def infoMeteorología(db: db_dependency, tokenValido: bool = Depends(verificarTokenJWT)):
+    url = "https://opendata.aemet.es/opendata/api/maestro/municipios"
+    querystring = {"api_key":os.getenv('AEMET_APIKEY')}
+    headers = { 'cache-control': "no-cache" }
+
+    response = requests.request("GET", url, headers=headers, params=querystring)
+    return response.text

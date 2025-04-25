@@ -1,24 +1,18 @@
 import uuid
-from sqlalchemy import UUID, Boolean, Column, ForeignKey, String
+from sqlalchemy import UUID, Column, DateTime, ForeignKey, String
 from database import Base
-
-class User(Base):
-    __tablename__ = 'user'
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    useragent = Column(String, index=True)
-    isadmin = Column(Boolean, default=False)
 
 class Credentials(Base):
     __tablename__ = 'credentials'
 
-    username = Column(String, primary_key=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    username = Column(String, unique=True)
     password = Column(String, index=False)
-    userid = Column(UUID, ForeignKey("user.id"))
 
-class Token(Base):
-    __tablename__ = 'token'
+class SessionToken(Base):
+    __tablename__ = 'sessiontoken'
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     token = Column(String, index=False)
-    userid = Column(UUID, ForeignKey("user.id"))
+    expiry_date = Column(DateTime, index=False)
+    userid = Column(UUID, ForeignKey("credentials.id"))
