@@ -31,7 +31,7 @@ export default function Testing() {
   const [listadoCredenciales, setListadoCredenciales] = useState(emptyJSON);
   const obtenerCredenciales = async () => {
     const respuesta: any = await listadoCredenciales_API(
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyZWYxNjNmNC04OGM1LTQ5OGYtODY2MC01YTY0NmFiMmZmN2MiLCJleHAiOjE3NDY3NDQ2NDl9.2Gd1d5R44fm_xQxyRT-3c5-FyKgE1MjXYVyG2Ro2IWU"
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyZWYxNjNmNC04OGM1LTQ5OGYtODY2MC01YTY0NmFiMmZmN2MiLCJleHAiOjE3NDc1Mjg0Mjl9.GKQoE1xoN0qtu5Y_6jt1wD14Qsy7A2kvnXbYq9x8UdM"
     );
     if (respuesta && respuesta.status === 200)
       setListadoCredenciales(respuesta);
@@ -361,7 +361,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   card: {
-    width: "100%",
     borderRadius: 16,
     paddingVertical: 20,
     paddingHorizontal: 10,

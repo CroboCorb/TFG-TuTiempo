@@ -15,7 +15,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.crobocorb.TuTiempoApp"
     },
     "web": {
       "bundler": "metro",
@@ -34,7 +35,16 @@
         }
       ],
       "expo-secure-store",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.22",
+            "jvmTarget": "17"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
