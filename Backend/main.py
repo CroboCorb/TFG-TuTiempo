@@ -154,10 +154,52 @@ async def listarTokens(db: db_dependency, tokenValido: bool = Depends(verificarT
     description="Controlador encargado de procesar la información solicitada y enviarla a la API maestra.",
     tags=["Meteorología"]
 )
-async def infoMeteorología(db: db_dependency, tokenValido: bool = Depends(verificarTokenJWT)):
-    url = "https://opendata.aemet.es/opendata/api/maestro/municipios"
-    querystring = {"api_key":os.getenv('AEMET_APIKEY')}
-    headers = { 'cache-control': "no-cache" }
+async def infoMeteorología(ciudad: str, db: db_dependency):
+    url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={ciudad}&days=7&aqi=no&alerts=yes&lang=es"
 
-    response = requests.request("GET", url, headers=headers, params=querystring)
-    return response.text
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        return await limpiezaDatosPronostico(response.json())
+    else:
+        return {"error": f"Error en la solicitud inicial: {response.status_code}"}
+
+async def limpiezaDatosPronostico(pronostico):
+    previsionHoy = pronostico["forecast"]["forecastday"][0]
+
+    return {
+        "ubicacion": pronostico["location"]["name"],
+        "pais": pronostico["location"]["country"],
+        "hora_local": pronostico["location"]["localtime"],
+        "clima_actual": {
+            "temperatura_c": pronostico["current"]["temp_c"],
+            "temperatura_f": pronostico["current"]["temp_f"],
+            "viento_kmh": pronostico["current"]["wind_kph"],
+            "viento_mph": pronostico["current"]["wind_mph"],
+            "viento_grados": pronostico["current"]["wind_degree"],
+            "viento_direccion": pronostico["current"]["wind_dir"],
+            "sensacion_c": pronostico["current"]["feelslike_c"],
+            "sensacion_f": pronostico["current"]["feelslike_f"],
+            "condicion": pronostico["current"]["condition"]["text"],
+            "icono": pronostico["current"]["condition"]["icon"],
+        },
+        "pronostico_actual": [
+            {
+                "hora": h["time"].split(" ")[1], 
+                "temp_c": h["temp_c"],
+                "temp_f": h["temp_f"],
+                "condicion": h["condition"]["text"],
+                "icono": h["condition"]["icon"]
+            } for h in previsionHoy["hour"]
+        ],
+        "pronostico_semanal": [
+            {
+                "fecha": dia["date"],
+                "max_temp": dia["day"]["maxtemp_c"],
+                "min_temp": dia["day"]["mintemp_c"],
+                "condicion": dia["day"]["condition"]["text"],
+                "icono": dia["day"]["condition"]["icon"]
+            } for dia in pronostico["forecast"]["forecastday"]
+        ],
+        "alertas": pronostico["alerts"]["alert"]
+    }
