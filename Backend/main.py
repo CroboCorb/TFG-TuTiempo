@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import json
 from fastapi import Body, FastAPI, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,6 +17,7 @@ import requests
 import database
 import modelsDB
 import modelsBase
+from urllib.parse import quote
 
 SECRET_KEY = os.getenv("SECRET_KEY", "mysecret")
 ALGORITHM = "HS256"
@@ -69,8 +71,8 @@ async def verificarTokenJWT(req: Request, db: db_dependency):
     
     resultado = await db.execute(select(modelsDB.SessionToken).where(modelsDB.SessionToken.token == token.strip().replace("Bearer ", "")))
     token_encontrado = resultado.scalars().first()
-    if (not token_encontrado):
-        raise HTTPException( status_code = 401, detail = "No autorizado" )
+    if not token_encontrado or token_encontrado.expiry_date < datetime.now():
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
     
     return True
 
@@ -112,7 +114,7 @@ async def iniciarSesion_API(db: db_dependency, username: str = Body(), password:
     db.add(modelsDB.SessionToken(token = token, expiry_date = expires_at, userid = usuario.id))
     await db.commit()
 
-    return { "token": token, "detail": "Inicio de sesión correcto" }
+    return token
 
 @app.put(
     "/credenciales/registrar",
@@ -145,18 +147,55 @@ async def listarTokens(db: db_dependency, tokenValido: bool = Depends(verificarT
         return resultado.scalars().all()
     except Exception as e:
         raise HTTPException( status_code = 400, detail = 'Error en la recogida de tokens.' )
+    
+@app.get(
+    "/tokens/verificar",
+    summary="Verificación de token JWT",
+    description="Verifica la veradicad del token JWT, comprobando su "
+    "existencia en la BBDD y su fecha de expiración",
+    tags=["Token"]
+)
+async def verificarToken(token: str = Query(..., description="Token JWT a verificar"), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(modelsDB.SessionToken).where(modelsDB.SessionToken.token == token))
+    token_db = result.scalars().first()
+
+    if not token_db or token_db.expiry_date < datetime.now():
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+    
+    return token_db.token
 
 # ============================================================
 
 @app.get(
-    "/meteorologia/",
-    summary="Obtener información meteorológica",
-    description="Controlador encargado de procesar la información solicitada y enviarla a la API maestra.",
+    "/meteorologia/ciudad",
+    summary="Obtener información meteorológica según nombre de ciudad",
+    description="Controlador encargado de recibir la información meteorológica de una ciudad por su nombre",
     tags=["Meteorología"]
 )
-async def infoMeteorología(ciudad: str, db: db_dependency):
-    url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={ciudad}&days=7&aqi=no&alerts=yes&lang=es"
+async def infoMeteorologíaPorNombre(ciudad: str, db: db_dependency):
+    url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={quote(f"{ciudad},Spain"),}&days=7&aqi=no&alerts=yes&lang=es"
+    response = requests.get(url)
 
+    # Reintento de búsqueda si no coincide el nombre de resultado (L'Escala, L'Ametlla, etc)
+    if (response.json()["location"]["name"].lower() != ciudad.lower()) & (ciudad.lower().startswith('l\'')):
+        ciudad = ciudad.lower().replace('l\'', 'la ')
+        url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={quote(f"{ciudad},Spain"),}&days=7&aqi=no&alerts=yes&lang=es"
+        response = requests.get(url)
+    
+    if response.status_code == 200:
+        return await limpiezaDatosPronostico(response.json())
+    else:
+        return {"error": f"Error en la solicitud inicial: {response.status_code}"}
+    
+@app.get(
+    "/meteorologia/cardinalidad",
+    summary="Obtener información meteorológica según cardinalidad",
+    description="Controlador encargado de recibir la información meteorológica de un punto "
+    "específico según la latitud y la longitud proporcionados.",
+    tags=["Meteorología"]
+)
+async def infoMeteorologíaPorCardinalidad(latitud: str, longitud: str, db: db_dependency):
+    url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={quote(f"{latitud},{longitud}"),}&days=7&aqi=no&alerts=yes&lang=es"
     response = requests.get(url)
     
     if response.status_code == 200:
