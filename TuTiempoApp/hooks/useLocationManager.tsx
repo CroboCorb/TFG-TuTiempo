@@ -1,14 +1,11 @@
-import GetLocation from 'react-native-get-location'
+import * as Location from 'expo-location';
 
-export async function ubicacionActual() {
-    GetLocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 60000,
-    })
-    .then(location => {
-        return location
-    })
-    .catch(error => {
-        return error;
-    })
+export async function UbicacionActual() {
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  if (status !== 'granted') {
+    throw new Error('Permiso denegado para acceder a la ubicación');
+  }
+
+  const location = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Balanced});
+  return [location.coords.latitude, location.coords.longitude];
 }

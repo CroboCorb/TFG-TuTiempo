@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, StatusBar } from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+import { View, StyleSheet, ScrollView, StatusBar, RefreshControl } from "react-native";
 import {
   Card,
   Text,
-  ActivityIndicator,
   Surface,
   Divider,
   Chip,
@@ -15,72 +14,88 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
-import AddCityDialog from "./addCityDialog";
+import { router, useFocusEffect } from "expo-router";
+import CabeceraCentrada from "@/components/CabeceraCentrada";
+import PantallaCarga from "@/components/PantallaCarga";
+import { UbicacionActual } from "@/hooks/useLocationManager";
+import { consultaMeteorologiaPorCardinalidad_API } from "@/hooks/useAPIManager";
 
-const datosEjemplo = {
-  ubicacion: "New York",
-  current: {
-    temp: 72,
-    condicion: "Parcialmente nublado",
-    humidity: 65,
-    windSpeed: 8,
-    feelsLike: 74,
-    icon: "weather-partly-cloudy",
-  },
-  forecast: [
-    { day: "Lunes", temp: 75, icon: "weather-sunny" },
-    { day: "Martes", temp: 68, icon: "weather-rainy" },
-    { day: "Miércoles", temp: 70, icon: "weather-partly-cloudy" },
-    { day: "Jueves", temp: 73, icon: "weather-sunny" },
-    { day: "Viernes", temp: 77, icon: "weather-sunny" },
-  ],
-  hourly: [
-    { time: "Ahora", temp: 72, icon: "weather-partly-cloudy" },
-    { time: "15:00", temp: 74, icon: "weather-partly-cloudy" },
-    { time: "16:00", temp: 75, icon: "weather-sunny" },
-    { time: "17:00", temp: 76, icon: "weather-sunny" },
-    { time: "18:00", temp: 75, icon: "weather-sunny" },
-    { time: "19:00", temp: 73, icon: "weather-partly-cloudy" },
-    { time: "20:00", temp: 70, icon: "weather-night-partly-cloudy" },
-  ],
-};
+const CIUDADES = "@usrCities";
+const CONFIG = "@appConfig";
 
 export default function PantallaTiempo() {
   const theme = useTheme();
 
-  const [settings, setSettings] = useState({
+  // Ícono animado de temperatura
+  const escalaIcono = useSharedValue(1);
+  const estiloAnimadoIcono = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: escalaIcono.value }],
+    };
+  });
+
+  const [configuracion, setConfiguracion] = useState({
     unidadTemperatura: "celsius",
     unidadMedidaViento: "kmh",
     unidadMedidaPresion: "hPa",
   });
 
-  const [meteorologia, setMeteorologia] = useState(datosEjemplo);
-  const [cargando, setEstadoCarga] = useState(false);
+  const [cargando, setEstadoCarga] = useState(true);
+  const [meteorologia, setMeteorologia] = useState("");
 
-  const [visibilidadModalNuevaCiudad, setVisibilidadModalNuevaCiudad] =
-    useState(false);
+  // Método de recarga de configuración y ciudades al enfocar
+  useFocusEffect(
+    useCallback(() => {
+      /** Método de carga de configuración */
+      const cargarConfiguracion = async () => {
+        try {
+          const preferencias = await AsyncStorage.getItem(CONFIG);
+          if (preferencias) setConfiguracion(JSON.parse(preferencias));
+        } catch (e) {
+          console.error("OPTIONS > Error al cargar la configuración:", e);
+        }
+      };
 
-  const escalaIcono = useSharedValue(1);
+      /** Método de carga de ciudades */
+      const cargarCiudades = async () => {
+        try {
+          const ciudades = await AsyncStorage.getItem(CIUDADES);
+          if (ciudades) {
+            // ESTABLECER LISTADO EN VARIABLE
+            console.log("INDEX > Ciudades cargadas correctamente.");
+          }
+        } catch (e) {
+          console.error("CIUDADES > Error al cargar las ciudades: ", e);
+        }
+      };
+
+      cargarConfiguracion();
+      cargarCiudades();
+    }, [])
+  );
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const saved = await AsyncStorage.getItem("@appConfig");
-        if (saved) setSettings(JSON.parse(saved));
-      } catch (e) {
-        console.error("Error al cargar configuración:", e);
-      }
+    const infoUbicacionActual = async () => {
+      const ubicacionActual = await UbicacionActual();
+
+      const resultado = await consultaMeteorologiaPorCardinalidad_API(
+        ubicacionActual[0].toString(),
+        ubicacionActual[1].toString()
+      );
+      if (resultado && resultado.status === 200)
+        setMeteorologia(resultado.data);
+      setEstadoCarga(false);
     };
 
-    fetchSettings();
+    if (cargando) infoUbicacionActual();
+  }, [cargando]);
 
-    // Animación
+  // Método de renderizado de animación
+  useEffect(() => {
     const interval = setInterval(() => {
       escalaIcono.value = withSpring(1.1, { damping: 2 });
       setTimeout(() => {
@@ -91,239 +106,201 @@ export default function PantallaTiempo() {
     return () => clearInterval(interval);
   }, []);
 
-  const estiloAnimadoIcono = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: escalaIcono.value }],
-    };
-  });
-
-  // MÉTODO DE CONVERSIÓN DE TEMPERATURA
-  const convertirTemperatura = (tempF: number) => {
-    return settings.unidadTemperatura === "celsius"
-      ? Math.round((tempF - 32) * (5 / 9))
-      : tempF;
-  };
-
-  // MÉTODO DE CONVERSIÓN DE VELOCIDAD
-  const convertirVelocidad = (velocidadMph: number) => {
-    return settings.unidadMedidaViento === "kmh"
-      ? Math.round(velocidadMph * 1.60934)
-      : velocidadMph;
-  };
-
-  // MÉTODO DE CONVERSIÓN DE PRESIÓN
-  const convertirPresion = (valorHpa: number) => {
-    switch (settings.unidadMedidaPresion) {
-      case "mmHg":
-        return Math.round(valorHpa * 0.750062);
-      case "atm":
-        return (valorHpa / 1013.25).toFixed(2);
-      case "hPa":
-      default:
-        return valorHpa;
-    }
-  };
+  if (cargando) return <PantallaCarga />;
 
   return (
-    <View
-      style={[styles.contenedor, { backgroundColor: theme.colors.background }]}
-    >
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <StatusBar barStyle="dark-content" />
-
-      <View
-        style={[styles.cabecera, { backgroundColor: theme.colors.primary }]}
+      <Appbar.Header
+        style={{
+          backgroundColor: theme.colors.primary,
+          marginTop: 0,
+          marginBottom: -25,
+          zIndex: 10,
+        }}
       >
-        <SafeAreaView style={styles.contenidoCabecera}>
-          <Appbar.Header
-            style={{
-              backgroundColor: "#00FFFFFFFF",
-              marginTop: 0,
-              marginBottom: -25,
-              zIndex: 10,
-            }}
-          >
-            <Appbar.Action
-              isLeading={true}
-              icon={"plus"}
-              iconColor={theme.colors.surface}
-              onPress={async () => {
-                setVisibilidadModalNuevaCiudad(true);
-              }}
-            />
-            <Appbar.Content title="" />
-            <Appbar.Action
-              isLeading={false}
-              icon={"cog"}
-              iconColor={theme.colors.surface}
-              onPress={async () => {
-                router.navigate("/options");
-              }}
-            />
-          </Appbar.Header>
+        <Appbar.Action
+          isLeading={true}
+          icon={"plus"}
+          iconColor={theme.colors.surface}
+          onPress={async () => {
+            router.navigate("/ciudades");
+          }}
+        />
+        <CabeceraCentrada
+          title={meteorologia.ubicacion}
+          style={{ color: theme.colors.surface }}
+          variant="titleMedium"
+        />
+        <Appbar.Action
+          isLeading={false}
+          icon={"cog"}
+          iconColor={theme.colors.surface}
+          onPress={async () => {
+            router.navigate("/options");
+          }}
+        />
+      </Appbar.Header>
 
-          <View style={[styles.tiempoActual, {marginTop: 0}]}>
-            <Text style={[styles.ubicacion, { color: theme.colors.surface }]}>
-              {meteorologia.ubicacion}
-            </Text>
-            <View style={styles.contenedorTemporal}>
-              <Animated.Text
-                style={[styles.temperatura, { color: theme.colors.surface }]}
-              >
-                {convertirTemperatura(meteorologia.current.temp)}°
-              </Animated.Text>
-              <Animated.View style={estiloAnimadoIcono}>
-                <MaterialCommunityIcons
-                  name={meteorologia.current.icon}
-                  size={70}
-                  color={theme.colors.surface}
-                />
-              </Animated.View>
-            </View>
-            <Text style={[styles.condicion, { color: theme.colors.surface }]}>
-              {meteorologia.current.condicion}
-            </Text>
+      <ScrollView>
+        {/* CABECERA DE INFORMACIÓN PRINCIPAL */}
+        <View
+          style={[
+            styles.tiempoActual,
+            { backgroundColor: theme.colors.primary, paddingBottom: 25 },
+          ]}
+        >
+          <View style={styles.contenedorTemporal}>
+            <Animated.Text
+              style={[styles.temperatura, { color: theme.colors.surface }]}
+            >
+              {configuracion.unidadTemperatura === "celsius"
+                ? meteorologia.clima_actual.temperatura_c
+                : meteorologia.clima_actual.temperatura_f}
+              °
+            </Animated.Text>
+            <Animated.View style={estiloAnimadoIcono}>
+              {/* <MaterialCommunityIcons
+                name={meteorologia.current.icon}
+                size={70}
+                color={theme.colors.surface}
+              /> */}
+            </Animated.View>
           </View>
-        </SafeAreaView>
-      </View>
-
-      {cargando ? (
-        <View style={styles.contenedorCarga}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={{ marginTop: 10 }}>Actualizando datos...</Text>
+          <Text style={[styles.condicion, { color: theme.colors.surface }]}>
+            {meteorologia.clima_actual.condicion}
+          </Text>
         </View>
-      ) : (
-        <ScrollView style={styles.scrollView}>
-          <Surface style={styles.tarjetaInformacion}>
-            <View style={styles.detallesTiempo}>
-              <View style={styles.detailItem}>
-                <MaterialCommunityIcons
-                  name="water-percent"
-                  size={24}
-                  color={theme.colors.primary}
-                />
-                <Text style={styles.detailValue}>
-                  {meteorologia.current.humidity}%
-                </Text>
-                <Text style={styles.detailLabel}>Humedad</Text>
-              </View>
-              <View style={styles.detailItem}>
-                <MaterialCommunityIcons
-                  name="weather-windy"
-                  size={24}
-                  color={theme.colors.primary}
-                />
-                <Text style={styles.detailValue}>
-                  {convertirVelocidad(meteorologia.current.windSpeed)}{" "}
-                  {settings.unidadMedidaViento === "kmh" ? "km/h" : "mph"}
-                </Text>
-                <Text style={styles.detailLabel}>Viento</Text>
-              </View>
-              <View style={styles.detailItem}>
-                <MaterialCommunityIcons
-                  name="thermometer"
-                  size={24}
-                  color={theme.colors.primary}
-                />
-                <Text style={styles.detailValue}>
-                  {convertirTemperatura(meteorologia.current.feelsLike)}°
-                </Text>
-                <Text style={styles.detailLabel}>Sensación</Text>
-              </View>
-            </View>
-          </Surface>
 
-          <Card style={styles.tarjetaPrevision}>
-            <Card.Title title="Previsión por horas" />
-            <Card.Content>
-              <View style={styles.contenedorPorHora}>
-                {meteorologia.hourly.map((hour, index) => (
-                  <View key={index} style={styles.objetoPorHora}>
-                    <Text style={styles.hourlyTime}>{hour.time}</Text>
-                    <MaterialCommunityIcons
-                      name={hour.icon}
+        {/* RESUMEN GENERAL */}
+        <Surface style={styles.tarjetaInformacion}>
+          <View style={styles.detallesTiempo}>
+            <View style={styles.elementoResumen}>
+              <MaterialCommunityIcons
+                name="water-percent"
+                size={24}
+                color={theme.colors.primary}
+              />
+              <Text style={styles.txtValor}>
+                {meteorologia.clima_actual.humedad}%
+              </Text>
+              <Text style={styles.txtResumen}>Humedad</Text>
+            </View>
+            <View style={styles.elementoResumen}>
+              <MaterialCommunityIcons
+                name="weather-windy"
+                size={24}
+                color={theme.colors.primary}
+              />
+              <Text style={styles.txtValor}>
+                {configuracion.unidadMedidaViento === "kmh"
+                  ? meteorologia.clima_actual.viento_kmh
+                  : meteorologia.clima_actual.viento_mph}{" "}
+                {configuracion.unidadMedidaViento === "kmh" ? "km/h" : "mph"}
+              </Text>
+              <Text style={styles.txtResumen}>Viento</Text>
+            </View>
+            <View style={styles.elementoResumen}>
+              <MaterialCommunityIcons
+                name="thermometer"
+                size={24}
+                color={theme.colors.primary}
+              />
+              <Text style={styles.txtValor}>
+                {configuracion.unidadTemperatura === "celsius"
+                  ? meteorologia.clima_actual.temperatura_c
+                  : meteorologia.clima_actual.temperatura_f}
+                °
+              </Text>
+              <Text style={styles.txtResumen}>Sensación</Text>
+            </View>
+          </View>
+        </Surface>
+
+        {/* PRONÓSTICO DEL DÍA */}
+        <Card style={styles.tarjetaPrevision}>
+          <Card.Title title="Previsión por horas" />
+          <Card.Content>
+            <ScrollView
+              contentContainerStyle={styles.contenedorPorHora}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+            >
+              {meteorologia.pronostico_actual.map((pronostico) => (
+                <View key={pronostico.hora} style={{ alignItems: "center" }}>
+                  <Text style={styles.txtPrevisionHora}>{pronostico.hora}</Text>
+                  <MaterialCommunityIcons
+                    name={"weather-cloudy"}
+                    size={28}
+                    color={theme.colors.primary}
+                  />
+                  <Text style={styles.temperaturaPorHoras}>
+                    {configuracion.unidadTemperatura === "celsius"
+                      ? pronostico.temp_c
+                      : pronostico.temp_f}
+                    °
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+          </Card.Content>
+        </Card>
+
+        {/* PRONÓSTICO SEMANAL */}
+        <Card style={styles.tarjetaPrevision}>
+          <Card.Title title="Previsión semanal" />
+          <Card.Content>
+            {meteorologia.pronostico_semanal.map((dia, index) => (
+              <React.Fragment key={dia.fecha}>
+                <View style={styles.previsionDiaria}>
+                  <Text style={styles.diaPrevision}>
+                    {dia.fecha}
+                  </Text>
+                  <View>
+                    {/* <MaterialCommunityIcons
+                      name={day.icon}
                       size={28}
                       color={theme.colors.primary}
-                    />
-                    <Text style={styles.temperaturaPorHoras}>
-                      {convertirTemperatura(hour.temp)}°
-                    </Text>
+                    /> */}
                   </View>
-                ))}
-              </View>
-            </Card.Content>
-          </Card>
+                  <Text style={styles.previsionTemperatura}>
+                    {configuracion.unidadTemperatura === "celsius"
+                      ? dia.max_temp_c
+                      : dia.max_temp_f}
+                    ° /{" "}
+                    {configuracion.unidadTemperatura === "celsius"
+                      ? dia.min_temp_c
+                      : dia.min_temp_f}
+                    °
+                  </Text>
+                </View>
+                {index < meteorologia.pronostico_semanal.length - 1 && (
+                  <Divider />
+                )}
+              </React.Fragment>
+            ))}
+          </Card.Content>
+        </Card>
 
-          <Card style={styles.tarjetaPrevision}>
-            <Card.Title title="Previsión semanal" />
-            <Card.Content>
-              {meteorologia.forecast.map((day, index) => (
-                <React.Fragment key={index}>
-                  <View style={styles.previsionDiaria}>
-                    <Text style={styles.diaPrevision}>{day.day}</Text>
-                    <View style={styles.contenedorIconoPrevision}>
-                      <MaterialCommunityIcons
-                        name={day.icon}
-                        size={28}
-                        color={theme.colors.primary}
-                      />
-                    </View>
-                    <Text style={styles.previsionTemperatura}>
-                      {convertirTemperatura(day.temp)}°
-                    </Text>
-                  </View>
-                  {index < meteorologia.forecast.length - 1 && <Divider />}
-                </React.Fragment>
-              ))}
-            </Card.Content>
-          </Card>
-
-          <Card style={styles.tarjetaPrevision}>
-            <Card.Title title="Alertas meteorológicas" />
-            <Card.Content>
-              <Chip
-                icon="alert"
-                style={{ backgroundColor: theme.colors.primaryContainer }}
-                textStyle={{ color: theme.colors.onPrimaryContainer }}
-              >
-                Sin alertas meteorológicas
-              </Chip>
-            </Card.Content>
-          </Card>
-
-          <View style={{ height: 20 }} />
-        </ScrollView>
-      )}
-
-      {visibilidadModalNuevaCiudad ? (
-        <AddCityDialog
-          visible={visibilidadModalNuevaCiudad}
-          hideDialog={async () => setVisibilidadModalNuevaCiudad(false)}
-        />
-      ) : (
-        <View />
-      )}
+        {/* ALERTAS METEOROLÓGICAS */}
+        <Card style={styles.tarjetaPrevision}>
+          <Card.Title title="Alertas meteorológicas" />
+          <Card.Content>
+            <Chip
+              icon="alert"
+              style={{ backgroundColor: theme.colors.primaryContainer }}
+              textStyle={{ color: theme.colors.onPrimaryContainer }}
+            >
+              Sin alertas meteorológicas
+            </Chip>
+          </Card.Content>
+        </Card>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  contenedor: {
-    flex: 1,
-  },
-  cabecera: {
-    height: 300,
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    overflow: "hidden",
-  },
-  contenidoCabecera: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-  },
   tiempoActual: {
     flex: 1,
     alignItems: "center",
@@ -339,9 +316,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    marginTop: 15,
   },
   temperatura: {
-    fontSize: 80,
+    fontSize: 64,
     fontWeight: "bold",
   },
   condicion: {
@@ -369,16 +347,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  detailItem: {
+  elementoResumen: {
     alignItems: "center",
     flex: 1,
   },
-  detailValue: {
+  txtValor: {
     fontSize: 18,
     fontWeight: "bold",
     marginTop: 5,
   },
-  detailLabel: {
+  txtResumen: {
     fontSize: 12,
     opacity: 0.7,
   },
@@ -390,13 +368,10 @@ const styles = StyleSheet.create({
   },
   contenedorPorHora: {
     flexDirection: "row",
-    paddingVertical: 10,
+    justifyContent: "space-evenly",
+    gap: 10,
   },
-  objetoPorHora: {
-    alignItems: "center",
-    marginRight: 20,
-  },
-  hourlyTime: {
+  txtPrevisionHora: {
     fontSize: 12,
     marginBottom: 5,
   },
@@ -413,10 +388,6 @@ const styles = StyleSheet.create({
   diaPrevision: {
     flex: 1,
     fontSize: 16,
-  },
-  contenedorIconoPrevision: {
-    flex: 1,
-    alignItems: "center",
   },
   previsionTemperatura: {
     flex: 1,

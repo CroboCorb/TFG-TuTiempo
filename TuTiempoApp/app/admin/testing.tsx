@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import {
   Card,
@@ -13,14 +13,21 @@ import {
 import { router } from "expo-router";
 
 import {
-  datosMeteorologia_API,
+  consultaMeteorologiaPorNombre_API,
   listadoCredenciales_API,
   listadoTokens_API,
   registrarUsuario_API,
 } from "@/hooks/useAPIManager";
+
 import JSONTree from "react-native-json-tree";
+import { City } from "country-state-city";
+import debounce from "lodash.debounce";
+
+import { useSession } from "@/functions/AuthProvider";
 
 export default function Testing() {
+  const { session } = useSession();
+
   const theme = useTheme();
   const emptyJSON = [
     {
@@ -28,27 +35,27 @@ export default function Testing() {
     },
   ];
 
+  // Variable y método de obtención del listado de credenciales
   const [listadoCredenciales, setListadoCredenciales] = useState(emptyJSON);
   const obtenerCredenciales = async () => {
-    const respuesta: any = await listadoCredenciales_API(
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyZWYxNjNmNC04OGM1LTQ5OGYtODY2MC01YTY0NmFiMmZmN2MiLCJleHAiOjE3NDc1Mjg0Mjl9.GKQoE1xoN0qtu5Y_6jt1wD14Qsy7A2kvnXbYq9x8UdM"
-    );
+    const respuesta: any = await listadoCredenciales_API(session);
     if (respuesta && respuesta.status === 200)
       setListadoCredenciales(respuesta);
   };
 
+  // Variable y método de obtención del listado de tokens
   const [listadoTokens, setListadoTokens] = useState(emptyJSON);
   const obtenerTokens = async () => {
-    const respuesta: any = await listadoTokens_API(
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyZWYxNjNmNC04OGM1LTQ5OGYtODY2MC01YTY0NmFiMmZmN2MiLCJleHAiOjE3NDY3NDQ2NDl9.2Gd1d5R44fm_xQxyRT-3c5-FyKgE1MjXYVyG2Ro2IWU"
-    );
+    const respuesta: any = await listadoTokens_API(session);
     if (respuesta && respuesta.status === 200) setListadoTokens(respuesta);
   };
 
+  // Variables de control para el registro
   const [usuario, setUsuario] = useState("");
   const [contrasena, setContrasena] = useState("");
   const [resultadoRegistro, setResultadoRegistro] = useState(emptyJSON);
 
+  // Métodos de control para el registro
   const usuarioInvalido = () => {
     return usuario.length < 4;
   };
@@ -56,22 +63,48 @@ export default function Testing() {
     return contrasena.length < 4;
   };
 
+  // Método de registro para un nuevo administrador
   const registrarUsuario = async (usuario: string, contrasena: string) => {
     const respuesta: any = await registrarUsuario_API(
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyZWYxNjNmNC04OGM1LTQ5OGYtODY2MC01YTY0NmFiMmZmN2MiLCJleHAiOjE3NDY3NDQ2NDl9.2Gd1d5R44fm_xQxyRT-3c5-FyKgE1MjXYVyG2Ro2IWU",
+      session,
       usuario,
       contrasena
     );
     if (respuesta && respuesta.status === 200) setResultadoRegistro(respuesta);
   };
 
+  // Variables de control para la búsqueda de ciudades
+  const [ciudadConsulta, setCiudadConsulta] = useState("");
   const [infoMeteorologica, setInfoMeteorologica] = useState(emptyJSON);
-  const consultarDatosMeteorologicos = async() => {
-    const respuesta: any = await datosMeteorologia_API(
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyZWYxNjNmNC04OGM1LTQ5OGYtODY2MC01YTY0NmFiMmZmN2MiLCJleHAiOjE3NDY3NDQ2NDl9.2Gd1d5R44fm_xQxyRT-3c5-FyKgE1MjXYVyG2Ro2IWU",
+
+  const [sugerenciasCiudades, setSugerenciasCiudades] = useState([]);
+  const [ciudadesPais] = useState(City.getCitiesOfCountry("ES"));
+
+  // Filtrado con debounce (mejor UX)
+  const filtrarCiudades = debounce((input) => {
+    if (input.length < 2) {
+      setSugerenciasCiudades([]);
+      return;
+    }
+    const lowerInput = input.toLowerCase();
+    const resultados = ciudadesPais!
+      .filter((c) => c.name.toLowerCase().startsWith(lowerInput))
+      .slice(0, 10);
+    setSugerenciasCiudades(resultados);
+  }, 200);
+
+  useEffect(() => {
+    filtrarCiudades(ciudadConsulta);
+  }, [ciudadConsulta]);
+
+  // Método para la consulta de la meteorología de la ciudad solicitada
+  const consultarDatosMeteorologicos = async () => {
+    const respuesta: any = await consultaMeteorologiaPorNombre_API(
+      session,
+      ciudadConsulta
     );
     if (respuesta && respuesta.status === 200) setInfoMeteorologica(respuesta);
-  }
+  };
 
   const limpiarJSON = async () => {
     setListadoCredenciales(emptyJSON);
@@ -81,6 +114,7 @@ export default function Testing() {
     setContrasena("");
     setResultadoRegistro(emptyJSON);
 
+    setCiudadConsulta("");
     setInfoMeteorologica(emptyJSON);
   };
 
@@ -315,7 +349,42 @@ export default function Testing() {
               Estado meteorológico
             </Text>
             <Divider style={{ marginTop: 15, marginBottom: 15 }} />
+
+            <TextInput
+              label="Ciudad"
+              value={ciudadConsulta}
+              mode="outlined"
+              onChangeText={setCiudadConsulta}
+              right={<TextInput.Icon icon="map-marker" />}
+            />
+
+            {ciudadConsulta.length > 1 && sugerenciasCiudades.length > 0 && (
+              <Card
+                style={{
+                  marginTop: 10,
+                  backgroundColor: theme.colors.elevation.level1,
+                }}
+              >
+                <Card.Content>
+                  {sugerenciasCiudades.map((ciudad, index) => (
+                    <Button
+                      key={index}
+                      onPress={async () => {
+                        setCiudadConsulta(ciudad.name);
+                        setSugerenciasCiudades([]);
+                      }}
+                      style={{ alignItems: "flex-start" }}
+                      contentStyle={{ justifyContent: "flex-start" }}
+                    >
+                      {ciudad.name}
+                    </Button>
+                  ))}
+                </Card.Content>
+              </Card>
+            )}
+
             <Button
+              style={{ marginTop: 15 }}
               onPress={async () => consultarDatosMeteorologicos()}
               icon={"weather-cloudy-clock"}
               mode="contained"

@@ -3,15 +3,19 @@ import encriptar from "./usePasswordCrypt";
 
 // ========== CONSTANTES ==========
 
+const REQUEST_TIMEOUT = 5000;
+
 const API_URL = "http://192.168.18.5:8000";
 
-const API_LISTADOCREDENCIALES = API_URL + "/credenciales/";
-const API_LISTADOTOKENS = API_URL + "/tokens/";
-
+const API_LISTADOCREDENCIALES = API_URL + "/credenciales";
 const API_LOGIN = API_URL + "/credenciales/login";
 const API_REGISTRO = API_URL + "/credenciales/registrar";
 
-const API_METEOROLOGIA = API_URL + "/meteorologia/";
+const API_LISTADOTOKENS = API_URL + "/tokens/";
+const API_VERIFICARTOKEN = API_URL + "/tokens/verificar"
+
+const API_METEOROLOGIA_CIUDAD = API_URL + "/meteorologia/ciudad";
+const API_METEOROLOGIA_CARDINALIDAD = API_URL + "/meteorologia/cardinalidad";
 
 // ========== MÉTODOS ==========
 
@@ -25,6 +29,7 @@ export const listadoCredenciales_API = async(token: string) => {
     const respuesta = await axios.get(
       API_LISTADOCREDENCIALES,
       {
+        timeout: REQUEST_TIMEOUT,
         headers: { Authorization: `Bearer ${token}` },
         params: { token: token },
       }
@@ -52,6 +57,7 @@ export const listadoTokens_API = async(token: string) => {
     const respuesta = await axios.get(
       API_LISTADOTOKENS,
       {
+        timeout: REQUEST_TIMEOUT,
         headers: { Authorization: `Bearer ${token}` },
         params: { token: token },
       }
@@ -81,10 +87,11 @@ export const iniciarSesion_API = async (username: string, password: string) => {
       API_LOGIN,
       { username, password },
       {
+        timeout: REQUEST_TIMEOUT,
         headers: { "Content-Type": "application/json" },
       }
     );
-
+    
     return respuesta;
   } catch (err: any) {
     if (err.status === 503)
@@ -110,10 +117,10 @@ export const registrarUsuario_API = async (
   password: string
 ) => {
   try {
-    const respuesta = await axios.put(
-      API_REGISTRO,
+    const respuesta = await axios.put(API_REGISTRO,
       { username: username, password: encriptar(password) },
       {
+        timeout: REQUEST_TIMEOUT,
         headers: { Authorization: `Bearer ${token}` },
       }
     );
@@ -128,13 +135,57 @@ export const registrarUsuario_API = async (
   }
 };
 
-export const datosMeteorologia_API = async (token: string) => {
+export const verificarToken_API = async (token: string) => {
+  try {
+    const respuesta = await axios.get(API_VERIFICARTOKEN, {
+      timeout: REQUEST_TIMEOUT,
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      params: {
+        token: token,
+      },
+    });
+
+    return respuesta;
+  } catch (err: any) {
+    if (err.status === 503)
+      return {
+        status: 503,
+        mensaje: "No se pudo establecer conexión con el servidor.",
+      };
+  }
+}
+
+export const consultaMeteorologiaPorNombre_API = async (ciudad: string) => {
   try {
     const respuesta = await axios.get(
-      API_METEOROLOGIA,
+      API_METEOROLOGIA_CIUDAD,
       {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { token: token },
+        timeout: REQUEST_TIMEOUT,
+        params: { ciudad: ciudad },
+      }
+    );
+
+    return respuesta;
+  } catch (err: any) {
+    if (err.status === 503)
+      return {
+        status: 503,
+        mensaje: "No se pudo establecer conexión con el servidor.",
+      };
+    else if (err.status === 404)
+      return { status: 404, mensaje: "Datos no encontrados." };
+  }
+};
+
+export const consultaMeteorologiaPorCardinalidad_API = async (latitud: string, longitud: string) => {
+  try {
+    const respuesta = await axios.get(
+      API_METEOROLOGIA_CARDINALIDAD,
+      {
+        timeout: REQUEST_TIMEOUT,
+        params: { latitud: latitud, longitud: longitud },
       }
     );
 

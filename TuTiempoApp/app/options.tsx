@@ -1,20 +1,36 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { ActivityIndicator, Appbar, Divider, Text, List, RadioButton, useTheme, TouchableRipple } from "react-native-paper";
+import {
+  ActivityIndicator,
+  Appbar,
+  Divider,
+  Text,
+  List,
+  RadioButton,
+  useTheme,
+  TouchableRipple,
+  Snackbar,
+} from "react-native-paper";
 
 import { router } from "expo-router";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Animated, { Animation, FadeIn } from "react-native-reanimated";
 
-const CONFIG = '@appConfig';
+const CONFIG = "@appConfig";
 
 export default function Options() {
   const theme = useTheme();
 
   const [valorLogin, setValorLogin] = useState(0);
+  const [visibilidadSnackbar, setVisibilidadSnackbar] = useState(false);
+  const cerrarSnackbar = async () => setVisibilidadSnackbar(false);
+  useEffect(() => {
+    if (valorLogin === 5) setVisibilidadSnackbar(true);
+  }, [valorLogin]);
 
-  const [unidadTemperatura, setUnidadTemperatura] = useState('celsius');
-  const [unidadMedidaViento, setUnidadMedidaViento] = useState('kmh');
-  const [unidadMedidaPresion, setUnidadMedidaPresion] = useState('hPa');
+  const [unidadTemperatura, setUnidadTemperatura] = useState("celsius");
+  const [unidadMedidaViento, setUnidadMedidaViento] = useState("kmh");
+  const [unidadMedidaPresion, setUnidadMedidaPresion] = useState("hPa");
 
   const [cargando, setEstadoCarga] = useState(true);
 
@@ -25,14 +41,15 @@ export default function Options() {
         const jsonValue = await AsyncStorage.getItem(CONFIG);
         if (jsonValue) {
           const saved = JSON.parse(jsonValue);
-          setUnidadTemperatura(saved.temperatureUnit || 'celsius');
-          setUnidadMedidaViento(saved.windSpeedUnit || 'kmh');
-          setUnidadMedidaPresion(saved.pressureUnit || 'hPa');
+          setUnidadTemperatura(saved.unidadTemperatura || "celsius");
+          setUnidadMedidaViento(saved.unidadMedidaViento || "kmh");
+          setUnidadMedidaPresion(saved.unidadMedidaPresion || "hPa");
         }
       } catch (e) {
-        console.error('Error al cargar la configuración:', e);
+        console.error("OPTIONS > Error al cargar la configuración:", e);
       } finally {
         setEstadoCarga(false);
+        console.log("OPTIONS > Configuración cargada correctamente.");
       }
     };
 
@@ -49,8 +66,9 @@ export default function Options() {
         ...newSettings,
       };
       await AsyncStorage.setItem(CONFIG, JSON.stringify(updated));
+      console.log("OPTIONS > Configuración guardada correctamente.")
     } catch (e) {
-      console.error('Error al guardar los cambios en la configuración:', e);
+      console.error("Error al guardar los cambios en la configuración:", e);
     }
   };
 
@@ -65,17 +83,31 @@ export default function Options() {
           }}
         />
         <Appbar.Content title="Configuración" />
-        {valorLogin === 5 ? <Appbar.Action icon='shield-crown' onPress={async() => router.navigate('/admin/login')}/> : <View/>}
+        {valorLogin >= 5 ? (
+          <Animated.View entering={FadeIn.duration(100)}>
+            <Appbar.Action
+              icon="shield-crown"
+              onPress={async () => router.navigate("/admin/login")}
+            />
+          </Animated.View>
+        ) : (
+          <View />
+        )}
       </Appbar.Header>
-      
-      <ScrollView style={{ flex: 1, padding: 16 }}>
 
+      <Divider/>
+
+      <ScrollView style={{ flex: 1, padding: 16 }}>
         {/* Control de unidad de temperatura */}
         <List.Section>
-          <List.Subheader style={{fontWeight: 'bold', textTransform: 'uppercase'}}>Unidad de temperatura</List.Subheader>
+          <List.Subheader
+            style={{ fontWeight: "bold", textTransform: "uppercase" }}
+          >
+            Unidad de temperatura
+          </List.Subheader>
           <RadioButton.Group
             value={unidadTemperatura}
-            onValueChange={value => {
+            onValueChange={(value) => {
               setUnidadTemperatura(value);
               guardarConfiguracion({ unidadTemperatura: value });
             }}
@@ -89,10 +121,14 @@ export default function Options() {
 
         {/* Control de unidad de viento */}
         <List.Section>
-          <List.Subheader style={{fontWeight: 'bold', textTransform: 'uppercase'}}>Unidad de velocidad del viento</List.Subheader>
+          <List.Subheader
+            style={{ fontWeight: "bold", textTransform: "uppercase" }}
+          >
+            Unidad de velocidad del viento
+          </List.Subheader>
           <RadioButton.Group
             value={unidadMedidaViento}
-            onValueChange={value => {
+            onValueChange={(value) => {
               setUnidadMedidaViento(value);
               guardarConfiguracion({ unidadMedidaViento: value });
             }}
@@ -106,16 +142,23 @@ export default function Options() {
 
         {/* Control de unidad de presión atmosférica */}
         <List.Section>
-          <List.Subheader style={{fontWeight: 'bold', textTransform: 'uppercase'}}>Unidad de presión atmosférica</List.Subheader>
+          <List.Subheader
+            style={{ fontWeight: "bold", textTransform: "uppercase" }}
+          >
+            Unidad de presión atmosférica
+          </List.Subheader>
           <RadioButton.Group
             value={unidadMedidaPresion}
-            onValueChange={value => {
+            onValueChange={(value) => {
               setUnidadMedidaPresion(value);
               guardarConfiguracion({ unidadMedidaPresion: value });
             }}
           >
             <RadioButton.Item label="Hectopascales (hPa)" value="hPa" />
-            <RadioButton.Item label="Milímetros de mercurio (mmHg)" value="mmHg" />
+            <RadioButton.Item
+              label="Milímetros de mercurio (mmHg)"
+              value="mmHg"
+            />
             <RadioButton.Item label="Atmósferas (atm)" value="atm" />
           </RadioButton.Group>
         </List.Section>
@@ -124,12 +167,30 @@ export default function Options() {
 
         {/* Sección de información */}
         <List.Section>
-          <List.Subheader style={{fontWeight: 'bold', textTransform: 'uppercase'}}>Información</List.Subheader>
-          <TouchableRipple style={{padding: 15}} onPress={async() => setValorLogin(valorLogin + 1)}>
-            <Text variant="bodyLarge">Política de privacidad</Text>
+          <List.Subheader
+            style={{ fontWeight: "bold", textTransform: "uppercase" }}
+          >
+            Información
+          </List.Subheader>
+
+          <Text style={{ padding: 15 }} variant="bodyLarge">
+            Política de privacidad
+          </Text>
+
+          <TouchableRipple
+            style={{ padding: 15 }}
+            onPress={async () => setValorLogin(valorLogin + 1)}
+          >
+            <Text variant="bodyLarge">Otros datos</Text>
           </TouchableRipple>
         </List.Section>
       </ScrollView>
+
+      <Snackbar visible={visibilidadSnackbar} onDismiss={cerrarSnackbar}>
+        <Text style={{ textAlign: "center", color: theme.colors.surface }}>
+          ¡Menú secreto activado!
+        </Text>
+      </Snackbar>
     </View>
   );
 }
