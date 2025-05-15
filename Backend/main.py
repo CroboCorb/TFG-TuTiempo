@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-import json
 from fastapi import Body, FastAPI, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -13,14 +12,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import os
 import jwt
 import requests
+import locale
 
 import database
 import modelsDB
 import modelsBase
-from urllib.parse import quote
 
 SECRET_KEY = os.getenv("SECRET_KEY", "mysecret")
 ALGORITHM = "HS256"
+locale.setlocale(locale.LC_TIME, "es_ES")
 
 app = FastAPI()
 
@@ -173,13 +173,13 @@ async def verificarToken(token: str = Query(..., description="Token JWT a verifi
     tags=["Meteorología"]
 )
 async def infoMeteorologíaPorNombre(ciudad: str, db: db_dependency):
-    url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={quote(f"{ciudad},Spain"),}&days=7&aqi=no&alerts=yes&lang=es"
+    url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={f"{ciudad},Spain"}&days=7&aqi=no&alerts=yes&lang=es"
     response = requests.get(url)
 
     # Reintento de búsqueda si no coincide el nombre de resultado (L'Escala, L'Ametlla, etc)
     if (response.json()["location"]["name"].lower() != ciudad.lower()) & (ciudad.lower().startswith('l\'')):
         ciudad = ciudad.lower().replace('l\'', 'la ')
-        url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={quote(f"{ciudad},Spain"),}&days=7&aqi=no&alerts=yes&lang=es"
+        url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={f"{ciudad},Spain"}&days=7&aqi=no&alerts=yes&lang=es"
         response = requests.get(url)
     
     if response.status_code == 200:
@@ -195,7 +195,7 @@ async def infoMeteorologíaPorNombre(ciudad: str, db: db_dependency):
     tags=["Meteorología"]
 )
 async def infoMeteorologíaPorCardinalidad(latitud: str, longitud: str, db: db_dependency):
-    url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={quote(f"{latitud},{longitud}"),}&days=7&aqi=no&alerts=yes&lang=es"
+    url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={f"{latitud},{longitud}"}&days=7&aqi=no&alerts=yes&lang=es"
     response = requests.get(url)
     
     if response.status_code == 200:
@@ -211,31 +211,34 @@ async def limpiezaDatosPronostico(pronostico):
         "pais": pronostico["location"]["country"],
         "hora_local": pronostico["location"]["localtime"],
         "clima_actual": {
-            "temperatura_c": pronostico["current"]["temp_c"],
-            "temperatura_f": pronostico["current"]["temp_f"],
-            "viento_kmh": pronostico["current"]["wind_kph"],
-            "viento_mph": pronostico["current"]["wind_mph"],
+            "temperatura_c": str(pronostico["current"]["temp_c"]).split(".")[0],
+            "temperatura_f": str(pronostico["current"]["temp_f"]).split(".")[0],
+            "viento_kmh": str(pronostico["current"]["wind_kph"]).split(".")[0],
+            "viento_mph": str(pronostico["current"]["wind_mph"]).split(".")[0],
             "viento_grados": pronostico["current"]["wind_degree"],
             "viento_direccion": pronostico["current"]["wind_dir"],
-            "sensacion_c": pronostico["current"]["feelslike_c"],
-            "sensacion_f": pronostico["current"]["feelslike_f"],
+            "sensacion_c": str(pronostico["current"]["feelslike_c"]).split(".")[0],
+            "sensacion_f": str(pronostico["current"]["feelslike_f"]).split(".")[0],
             "condicion": pronostico["current"]["condition"]["text"],
+            "humedad": pronostico["current"]["humidity"],
             "icono": pronostico["current"]["condition"]["icon"],
         },
         "pronostico_actual": [
             {
-                "hora": h["time"].split(" ")[1], 
-                "temp_c": h["temp_c"],
-                "temp_f": h["temp_f"],
+                "hora": str(h["time"]).split(" ")[1], 
+                "temp_c": str(h["temp_c"]).split(".")[0],
+                "temp_f": str(h["temp_f"]).split(".")[0],
                 "condicion": h["condition"]["text"],
                 "icono": h["condition"]["icon"]
             } for h in previsionHoy["hour"]
         ],
         "pronostico_semanal": [
             {
-                "fecha": dia["date"],
-                "max_temp": dia["day"]["maxtemp_c"],
-                "min_temp": dia["day"]["mintemp_c"],
+                "fecha": datetime.fromisoformat(str(dia["date"])).strftime('%A').capitalize() + " " + str(dia["date"]).split("-")[2],
+                "max_temp_c": str(dia["day"]["maxtemp_c"]).split(".")[0],
+                "max_temp_f": str(dia["day"]["maxtemp_f"]).split(".")[0],
+                "min_temp_c": str(dia["day"]["mintemp_c"]).split(".")[0],
+                "min_temp_f": str(dia["day"]["mintemp_f"]).split(".")[0],
                 "condicion": dia["day"]["condition"]["text"],
                 "icono": dia["day"]["condition"]["icon"]
             } for dia in pronostico["forecast"]["forecastday"]
