@@ -1,0 +1,18 @@
+{
+    "N": "Norte",
+    "NNE": "Norte-Nordeste",
+    "NE": "Nordeste",
+    "ENE": "Este-Nordeste",
+    "E": "Este",
+    "ESE": "Este-Surdeste",
+    "SE": "Sureste",
+    "SSE": "Sur-Sureste",
+    "S": "Sur",
+    "SSW": "Sur-Suroeste",
+    "SW": "Suroeste",
+    "WSW": "Oeste-Suroeste",
+    "W": "Oeste",
+    "WNW": "Oeste-Noroeste",
+    "NW": "Noroeste",
+    "NNW": "Norte-Noroeste"
+}

@@ -1,8 +1,8 @@
-from datetime import datetime, timedelta
 from fastapi import Body, FastAPI, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from typing import Annotated
+from datetime import datetime, timedelta, time
 
 from pydantic import UUID4
 from sqlalchemy import create_engine, select
@@ -11,18 +11,34 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import os
 import jwt
-import requests
+import json
 import locale
+import requests
 
 import database
 import modelsDB
 import modelsBase
 
+# VALORES CONSTANTES
 SECRET_KEY = os.getenv("SECRET_KEY", "mysecret")
 ALGORITHM = "HS256"
-locale.setlocale(locale.LC_TIME, "es_ES")
+
+
+# CARGA DE ARCHIVO JSON CON ÍCONOS DE TIEMPO
+with open("refs/IconosTiempo.json", "r", encoding="utf-8") as f:
+    ICONOS_TIEMPO: dict = json.load(f)
+
+# CARGA DE ARCHIVO JSON CON TRADUCCIONES DE FASE LUNAR
+with open("refs/FasesLuna.json", "r", encoding="utf-8") as f:
+    FASES_LUNA: dict = json.load(f)
+
+# CARGA DE ARCHIVO JSON DE BRÚJULA DE 16 PUNTAS
+with open("refs/Cardinalidad.json", "r", encoding="utf-8") as f:
+    DIR_VIENTO: dict = json.load(f)
+
 
 app = FastAPI()
+locale.setlocale(locale.LC_TIME, "es_ES")
 
 origins = ["*"]
 app.add_middleware(
@@ -174,18 +190,18 @@ async def verificarToken(token: str = Query(..., description="Token JWT a verifi
 )
 async def infoMeteorologíaPorNombre(ciudad: str, db: db_dependency):
     url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={f"{ciudad},Spain"}&days=7&aqi=no&alerts=yes&lang=es"
-    response = requests.get(url)
+    respuesta = requests.get(url)
 
     # Reintento de búsqueda si no coincide el nombre de resultado (L'Escala, L'Ametlla, etc)
-    if (response.json()["location"]["name"].lower() != ciudad.lower()) & (ciudad.lower().startswith('l\'')):
+    if (respuesta.json()["location"]["name"].lower() != ciudad.lower()) & (ciudad.lower().startswith('l\'')):
         ciudad = ciudad.lower().replace('l\'', 'la ')
         url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={f"{ciudad},Spain"}&days=7&aqi=no&alerts=yes&lang=es"
-        response = requests.get(url)
+        respuesta = requests.get(url)
     
-    if response.status_code == 200:
-        return await limpiezaDatosPronostico(response.json())
+    if respuesta.status_code == 200:
+        return await limpiezaDatosPronostico(respuesta.json(), url.split("&days")[0])
     else:
-        return {"error": f"Error en la solicitud inicial: {response.status_code}"}
+        return {"error": f"Error en la solicitud: {respuesta.status_code}"}
     
 @app.get(
     "/meteorologia/cardinalidad",
@@ -195,15 +211,30 @@ async def infoMeteorologíaPorNombre(ciudad: str, db: db_dependency):
     tags=["Meteorología"]
 )
 async def infoMeteorologíaPorCardinalidad(latitud: str, longitud: str, db: db_dependency):
-    url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={f"{latitud},{longitud}"}&days=7&aqi=no&alerts=yes&lang=es"
-    response = requests.get(url)
-    
-    if response.status_code == 200:
-        return await limpiezaDatosPronostico(response.json())
-    else:
-        return {"error": f"Error en la solicitud inicial: {response.status_code}"}
+    url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={f"{latitud},{longitud}"}&days=3&aqi=no&alerts=yes&lang=es"
+    respuesta = requests.get(url)
 
-async def limpiezaDatosPronostico(pronostico):
+    if respuesta.status_code == 200:
+        return await limpiezaDatosPronostico(respuesta.json(), url.split("&days")[0])
+    else:
+        return {"error": f"Error en la solicitud: {respuesta.status_code}"}
+
+async def limpiezaDatosPronostico(pronostico, url: str):
+    urlSolicitud = url.replace("forecast.json", "astronomy.json") + f"&dt={f"{datetime.now().date()}"}"
+    respuesta = requests.get(urlSolicitud)
+
+    if respuesta.status_code == 200:
+        jsonRespuesta = respuesta.json()
+
+        fechaAtardecerModificada = str(jsonRespuesta["astronomy"]["astro"]["sunset"]).replace(" PM", "")
+        fechaAtardecerModificada = str(int(fechaAtardecerModificada.split(":")[0]) + 12) + ":" + fechaAtardecerModificada.split(":")[1]
+
+        datosAstronomia = {
+            "amanecer": str(jsonRespuesta["astronomy"]["astro"]["sunrise"]).replace(" AM", ""),
+            "atardecer": fechaAtardecerModificada,
+            "fase_lunar": FASES_LUNA.get(str(jsonRespuesta["astronomy"]["astro"]["moon_phase"])),
+        }
+
     previsionHoy = pronostico["forecast"]["forecastday"][0]
 
     return {
@@ -213,15 +244,17 @@ async def limpiezaDatosPronostico(pronostico):
         "clima_actual": {
             "temperatura_c": str(pronostico["current"]["temp_c"]).split(".")[0],
             "temperatura_f": str(pronostico["current"]["temp_f"]).split(".")[0],
-            "viento_kmh": str(pronostico["current"]["wind_kph"]).split(".")[0],
-            "viento_mph": str(pronostico["current"]["wind_mph"]).split(".")[0],
+            "viento_kmh": pronostico["current"]["wind_kph"],
+            "viento_mph": pronostico["current"]["wind_mph"],
             "viento_grados": pronostico["current"]["wind_degree"],
-            "viento_direccion": pronostico["current"]["wind_dir"],
+            "viento_direccion": DIR_VIENTO.get(str(pronostico["current"]["wind_dir"])),
             "sensacion_c": str(pronostico["current"]["feelslike_c"]).split(".")[0],
             "sensacion_f": str(pronostico["current"]["feelslike_f"]).split(".")[0],
+            "presion_mb": str(pronostico["current"]["pressure_mb"]).split(".")[0],
+            "presion_in": str(pronostico["current"]["pressure_in"]).split(".")[0],
             "condicion": pronostico["current"]["condition"]["text"],
             "humedad": pronostico["current"]["humidity"],
-            "icono": pronostico["current"]["condition"]["icon"],
+            "icono": await sustituirIconoTiempo(str(pronostico["current"]["condition"]["icon"])[-7:].replace(".png",""), -1),
         },
         "pronostico_actual": [
             {
@@ -229,7 +262,7 @@ async def limpiezaDatosPronostico(pronostico):
                 "temp_c": str(h["temp_c"]).split(".")[0],
                 "temp_f": str(h["temp_f"]).split(".")[0],
                 "condicion": h["condition"]["text"],
-                "icono": h["condition"]["icon"]
+                "icono": await sustituirIconoTiempo(str(h["condition"]["icon"])[-7:].replace(".png",""), int(h["is_day"])),
             } for h in previsionHoy["hour"]
         ],
         "pronostico_semanal": [
@@ -239,9 +272,23 @@ async def limpiezaDatosPronostico(pronostico):
                 "max_temp_f": str(dia["day"]["maxtemp_f"]).split(".")[0],
                 "min_temp_c": str(dia["day"]["mintemp_c"]).split(".")[0],
                 "min_temp_f": str(dia["day"]["mintemp_f"]).split(".")[0],
+                "prob_lluvia": dia["day"]["daily_chance_of_rain"],
+                "prob_nieve": dia["day"]["daily_chance_of_snow"],
                 "condicion": dia["day"]["condition"]["text"],
-                "icono": dia["day"]["condition"]["icon"]
+                "icono": await sustituirIconoTiempo(str(dia["day"]["condition"]["icon"])[-7:].replace(".png",""), 1),
             } for dia in pronostico["forecast"]["forecastday"]
         ],
+        "astronomia": datosAstronomia,
         "alertas": pronostico["alerts"]["alert"]
     }
+
+async def sustituirIconoTiempo(numIcono: str, esDia: int):
+    if numIcono == "113" or numIcono == "116":
+        if esDia == 1: numIcono = numIcono + "_A"
+        else: numIcono = numIcono + "_B"
+
+    iconoMDI = ICONOS_TIEMPO.get(numIcono)
+    if iconoMDI:
+        return iconoMDI
+    else:
+        return "weather-cloudy-alert"
