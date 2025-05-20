@@ -1,11 +1,21 @@
 import * as Location from 'expo-location';
 
-export async function UbicacionActual() {
+/**
+ * Método de comprobación de permisos de ubicación
+ * @returns Verdadero si el permiso está concedido, falso en caso contrario
+ */
+export async function ComprobarPermisos() {
   const { status } = await Location.requestForegroundPermissionsAsync();
-  if (status !== 'granted') {
-    throw new Error('Permiso denegado para acceder a la ubicación');
-  }
+  return status === 'granted' ? true : false;
+}
 
-  const location = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Balanced});
-  return [location.coords.latitude, location.coords.longitude];
+/**
+ * Método encargado de devolver la ubicación aproximada (a 1km) del usuario
+ * @returns Array con latitud y longitud actual del usuario
+ */
+export async function UbicacionActual() {
+  if (await ComprobarPermisos()) {
+    const location = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Low});
+    return [location.coords.latitude, location.coords.longitude];
+  }
 }
