@@ -241,6 +241,7 @@ async def limpiezaDatosPronostico(pronostico, url: str):
         "ubicacion": pronostico["location"]["name"],
         "pais": pronostico["location"]["country"],
         "hora_local": pronostico["location"]["localtime"],
+        "ultima_actualizacion": pronostico["current"]["last_updated"],
         "clima_actual": {
             "temperatura_c": str(pronostico["current"]["temp_c"]).split(".")[0],
             "temperatura_f": str(pronostico["current"]["temp_f"]).split(".")[0],
