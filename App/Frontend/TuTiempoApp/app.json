@@ -1,13 +1,15 @@
 {
   "expo": {
-    "name": "TuTiempoApp",
-    "slug": "TuTiempoApp",
+    "name": "Tu Tiempo",
+    "slug": "Tu Tiempo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
+    "githubUrl": "https://github.com/CroboCorb/TFG-TuTiempo",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "platforms": "android",
     "ios": {
       "supportsTablet": true
     },
@@ -35,7 +37,6 @@
         }
       ],
       "expo-secure-store",
-      "expo-sqlite",
       [
         "expo-build-properties",
         {

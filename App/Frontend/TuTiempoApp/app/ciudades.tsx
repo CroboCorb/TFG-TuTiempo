@@ -13,15 +13,22 @@ import { City } from "country-state-city";
 import { View, ScrollView, StyleSheet } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ciudad } from "@/types/ListadoCiudades";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 const CIUDADES = "@usrCities";
 
 export default function Ciudades() {
   const theme = useTheme();
 
-  const [ciudades, setCiudades] = useState<
-    { nombre: string; maxtemp: number; mintemp: number }[]
-  >([]);
+  // Valores de preferencias del usuario por defecto
+  const [configuracion, setConfiguracion] = useState({
+    unidadTemperatura: "celsius",
+    unidadMedidaViento: "kmh",
+    unidadMedidaPresion: "mb",
+  });
+
+  const [listadoCiudades, setListadoCiudades] = useState<Ciudad[]>([]);
   const [ciudadConsulta, setCiudadConsulta] = useState("");
   const [sugerenciasCiudades, setSugerenciasCiudades] = useState([]);
 
@@ -41,13 +48,27 @@ export default function Ciudades() {
     filtrarCiudades(ciudadConsulta);
   }, [ciudadConsulta]);
 
+  /** Método de carga de preferencias */
+  const cargarPreferencias = async () => {
+    try {
+      const preferencias = await AsyncStorage.getItem(CONFIG);
+      if (preferencias) {
+        console.log("INDEX > Configuración cargada correctamente.");
+        setConfiguracion(JSON.parse(preferencias));
+      }
+    } catch (e) {
+      console.error("OPTIONS > Error al cargar la configuración:", e);
+    }
+  };
+
   /** Método de carga de ciudades guardadas */
   const cargarCiudades = useCallback(() => {
     const cargar = async () => {
       try {
         const ciudades = await AsyncStorage.getItem(CIUDADES);
         if (ciudades) {
-          setCiudades(JSON.parse(ciudades));
+          const ciudadesParseadas: Ciudad[] = JSON.parse(ciudades);
+          setListadoCiudades(ciudadesParseadas);
           console.log("CIUDADES > Ciudades cargadas correctamente.");
         }
       } catch (e) {
@@ -61,44 +82,17 @@ export default function Ciudades() {
   // Ejecución al recibir enfoque
   useFocusEffect(useCallback(() => cargarCiudades(), []));
 
-  /** Método encargado de comparar si la ciudad es correcta
-   * y de guardarla en el AsyncStorage designado */
-  const guardarNuevaCiudad = async () => {
-    try {
-      const ciudadExiste = City.getCitiesOfCountry("ES")!.some(
-        (c) => c.name.toLowerCase() === ciudadConsulta.toLowerCase()
-      );
-
-      if (ciudadExiste && (!ciudades[0] || ciudades[0].nombre !== ciudadConsulta)) {
-        const nuevasCiudades = [
-          ...ciudades,
-          {
-            nombre: ciudadConsulta,
-            maxtemp: 0,
-            mintemp: 0,
-          },
-        ];
-
-        setCiudades(nuevasCiudades);
-        await AsyncStorage.setItem(CIUDADES, JSON.stringify(nuevasCiudades));
-        console.log("Ciudad guardada correctamente.");
-      } else console.warn("La ciudad ya está registrada.");
-    } catch (e) {
-      console.error("Error al guardar la ciudad: ", e);
-    }
-  };
-
   /**
    * Método encargado de eliminar una ciudad del AsyncStorage
    * @param ciudad Ciudad a eliminar de AsyncStorage
    */
   const eliminarCiudad = async (nombreCiudad: string) => {
     try {
-      const nuevasCiudades = ciudades.filter(
+      const nuevasCiudades = listadoCiudades.filter(
         (c) => c.nombre.toLowerCase() !== nombreCiudad.toLowerCase()
       );
 
-      setCiudades(nuevasCiudades);
+      setListadoCiudades(nuevasCiudades);
       await AsyncStorage.setItem(CIUDADES, JSON.stringify(nuevasCiudades));
       console.log("Ciudad eliminada correctamente.");
     } catch (error) {
@@ -128,7 +122,7 @@ export default function Ciudades() {
           right={
             <TextInput.Icon
               icon="send"
-              onPress={async () => guardarNuevaCiudad()}
+              onPress={async () => console.log("a")}
             />
           }
         />
@@ -158,47 +152,48 @@ export default function Ciudades() {
           </Card>
         )}
 
-        {/* UBICACIÓN ACTUAL DEL USUARIO */}
-        <Card
-          style={{ marginTop: 15 }}
-          onPress={async () => console.log("ubi actual")}
-          onLongPress={async () => console.log("opciones")}
-        >
-          <View style={styles.contenedor}>
-            <Card.Title
-              style={{ width: "70%" }}
-              title="Ubicación actual"
-              titleVariant="titleMedium"
-            />
-            <View style={[{ width: "30%" }, styles.centrador]}>
-              <Text style={styles.texto}>MAXº - MINº</Text>
-            </View>
-          </View>
-        </Card>
-
-        <Divider style={{ marginTop: 15 }} />
-
         {/* UBICACIONES GUARDADAS */}
-        {ciudades.map((ciudad) => (
-          <Card
-            key={ciudad.nombre}
-            style={{ marginTop: 15 }}
-            onPress={async () => console.log(ciudades.indexOf(ciudad))}
-            onLongPress={async () => eliminarCiudad(ciudad.nombre)}
-          >
-            <View style={styles.contenedor}>
-              <Card.Title
-                style={{ width: "70%" }}
-                title={ciudad.nombre}
-                titleVariant="titleMedium"
-              />
-              <View style={[{ width: "30%" }, styles.centrador]}>
-                <Text style={styles.texto}>
-                  {ciudad.maxtemp}° - {ciudad.mintemp}°
+        {listadoCiudades.map((ciudad, index) => (
+          <View>
+            <Card
+              key={index}
+              style={{ marginTop: 15 }}
+              onLongPress={async () => ciudad.usaUbicacion ? {} : eliminarCiudad(ciudad.nombre)}
+            >
+              <View style={styles.contenedor}>
+                <View style={{ flex: 1, flexDirection: "row" }}>
+                  <MaterialCommunityIcons
+                    name={ciudad.usaUbicacion ? "map-marker-radius-outline" : "map-marker-plus-outline"}
+                    size={24}
+                    color={theme.colors.primary}
+                  />
+                  <Text style={{ marginLeft: 8 }} variant="titleMedium">
+                    {ciudad.nombre}
+                  </Text>
+                </View>
+
+                <Text
+                  variant="titleMedium"
+                  style={{
+                    textAlign: "center",
+                    fontWeight: "bold",
+                    fontSize: 16,
+                  }}
+                >
+                  {configuracion.unidadTemperatura === "celsius"
+                    ? ciudad.meteorologia.pronostico_semanal[0].max_temp_c
+                    : ciudad.meteorologia.pronostico_semanal[0].max_temp_f}
+                  {"° - "}
+                  {configuracion.unidadTemperatura === "celsius"
+                    ? ciudad.meteorologia.pronostico_semanal[0].min_temp_c
+                    : ciudad.meteorologia.pronostico_semanal[0].min_temp_f}
+                  °
                 </Text>
               </View>
-            </View>
-          </Card>
+            </Card>
+
+            <Divider style={{ marginTop: 15 }} />
+          </View>
         ))}
       </ScrollView>
     </View>
@@ -208,21 +203,12 @@ export default function Ciudades() {
 const styles = StyleSheet.create({
   contenedor: {
     flex: 1,
-    flexWrap: "wrap",
     flexDirection: "row",
-    alignItems: "center",
-  },
-  columna: {
-    width: "50%",
+    padding: 12,
   },
   centrador: {
     justifyContent: "center",
     alignItems: "center",
     height: "100%",
-  },
-  texto: {
-    textAlign: "center",
-    fontWeight: "bold",
-    fontSize: 16,
   },
 });

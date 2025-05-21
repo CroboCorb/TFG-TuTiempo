@@ -43,13 +43,13 @@ export default function Options() {
           const saved = JSON.parse(jsonValue);
           setUnidadTemperatura(saved.unidadTemperatura || "celsius");
           setUnidadMedidaViento(saved.unidadMedidaViento || "kmh");
-          setUnidadMedidaPresion(saved.unidadMedidaPresion || "hPa");
+          setUnidadMedidaPresion(saved.unidadMedidaPresion || "mb");
         }
       } catch (e) {
         console.error("OPTIONS > Error al cargar la configuración:", e);
       } finally {
-        setEstadoCarga(false);
         console.log("OPTIONS > Configuración cargada correctamente.");
+        setEstadoCarga(false);
       }
     };
 
@@ -68,7 +68,7 @@ export default function Options() {
       await AsyncStorage.setItem(CONFIG, JSON.stringify(updated));
       console.log("OPTIONS > Configuración guardada correctamente.")
     } catch (e) {
-      console.error("Error al guardar los cambios en la configuración:", e);
+      console.error("OPTIONS > Error al guardar los cambios en la configuración:", e);
     }
   };
 
@@ -154,12 +154,8 @@ export default function Options() {
               guardarConfiguracion({ unidadMedidaPresion: value });
             }}
           >
-            <RadioButton.Item label="Hectopascales (hPa)" value="hPa" />
-            <RadioButton.Item
-              label="Milímetros de mercurio (mmHg)"
-              value="mmHg"
-            />
-            <RadioButton.Item label="Atmósferas (atm)" value="atm" />
+            <RadioButton.Item label="Milibares (mb)" value="mb" />
+            <RadioButton.Item label="Pulgadas (in)" value="in" />
           </RadioButton.Group>
         </List.Section>
 

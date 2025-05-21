@@ -2,6 +2,7 @@ export type InfoMeteorologia = {
     ubicacion: string,
     pais: string,
     hora_local: string,
+    ultima_actualizacion: string,
     clima_actual: {
         temperatura_c: string,
         temperatura_f: string,
@@ -23,7 +24,7 @@ export type InfoMeteorologia = {
         temp_f: string,
         condicion: string,
         icono: string,
-    },
+    }[],
     pronostico_semanal: {
         fecha: string,
         max_temp_c: string,
@@ -34,7 +35,7 @@ export type InfoMeteorologia = {
         prob_nieve: string,
         condicion: string,
         icono: string,
-    },
+    }[],
     astronomia: {
         amanecer: string,
         atardecer: string,
