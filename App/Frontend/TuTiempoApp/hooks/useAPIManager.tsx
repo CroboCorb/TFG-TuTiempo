@@ -3,7 +3,7 @@ import encriptar from "./usePasswordCrypt";
 
 // ========== CONSTANTES ==========
 
-const REQUEST_TIMEOUT = 5000;
+const REQUEST_TIMEOUT = 2000;
 
 const API_URL = "http://10.244.217.31:8000";
 

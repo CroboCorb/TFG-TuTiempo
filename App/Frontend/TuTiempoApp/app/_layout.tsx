@@ -3,6 +3,8 @@ import { StatusBar } from "expo-status-bar";
 import { useColorScheme } from "react-native";
 import { MD3DarkTheme, MD3LightTheme, PaperProvider } from "react-native-paper";
 import { useMaterial3Theme } from "@pchmn/expo-material3-theme";
+import { useEffect } from "react";
+import * as NavigationBar from "expo-navigation-bar";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -13,10 +15,18 @@ export default function RootLayout() {
       ? { ...MD3DarkTheme, colors: theme.dark }
       : { ...MD3LightTheme, colors: theme.light };
 
+  useEffect(() => {;
+    NavigationBar.setBackgroundColorAsync(theme[colorScheme!].background);
+    NavigationBar.setBorderColorAsync(theme[colorScheme!].primary)
+    colorScheme === "light"
+      ? NavigationBar.setButtonStyleAsync("dark")
+      : NavigationBar.setButtonStyleAsync("light");
+  }, [colorScheme]);
+
   return (
     <PaperProvider theme={paperTheme}>
-      <StatusBar style="dark"/>
-      <Stack screenOptions={{headerShown: false}}/>
+      <StatusBar />
+      <Stack screenOptions={{ headerShown: false }} />
     </PaperProvider>
   );
 }

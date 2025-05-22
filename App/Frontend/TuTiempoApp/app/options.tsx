@@ -18,14 +18,24 @@ import Animated, { Animation, FadeIn } from "react-native-reanimated";
 
 const CONFIG = "@appConfig";
 
+const SNACKBAR_DURACION = 2500;
+
 export default function Options() {
   const theme = useTheme();
 
+  const [visibilidadSnackbarMenuSecreto, setVisibilidadSnackbarMenuSecreto] =
+    useState(false);
+  const cerrarSnackbarMenuSecreto = async () =>
+    setVisibilidadSnackbarMenuSecreto(false);
+
+  const [visibilidadSnackbarInformacion, setVisibilidadSnackbarInformacion] =
+    useState(false);
+  const cerrarSnackbarInformacion = async () =>
+    setVisibilidadSnackbarInformacion(false);
+
   const [valorLogin, setValorLogin] = useState(0);
-  const [visibilidadSnackbar, setVisibilidadSnackbar] = useState(false);
-  const cerrarSnackbar = async () => setVisibilidadSnackbar(false);
   useEffect(() => {
-    if (valorLogin === 5) setVisibilidadSnackbar(true);
+    if (valorLogin === 5) setVisibilidadSnackbarMenuSecreto(true);
   }, [valorLogin]);
 
   const [unidadTemperatura, setUnidadTemperatura] = useState("celsius");
@@ -66,9 +76,12 @@ export default function Options() {
         ...newSettings,
       };
       await AsyncStorage.setItem(CONFIG, JSON.stringify(updated));
-      console.log("OPTIONS > Configuración guardada correctamente.")
+      console.log("OPTIONS > Configuración guardada correctamente.");
     } catch (e) {
-      console.error("OPTIONS > Error al guardar los cambios en la configuración:", e);
+      console.error(
+        "OPTIONS > Error al guardar los cambios en la configuración:",
+        e
+      );
     }
   };
 
@@ -95,7 +108,7 @@ export default function Options() {
         )}
       </Appbar.Header>
 
-      <Divider/>
+      <Divider />
 
       <ScrollView style={{ flex: 1, padding: 16 }}>
         {/* Control de unidad de temperatura */}
@@ -161,30 +174,50 @@ export default function Options() {
 
         <Divider />
 
-        {/* Sección de información */}
+        {/* Apartado secundario */}
         <List.Section>
           <List.Subheader
             style={{ fontWeight: "bold", textTransform: "uppercase" }}
           >
-            Información
+            Otros
           </List.Subheader>
 
-          <Text style={{ padding: 15 }} variant="bodyLarge">
-            Política de privacidad
-          </Text>
+          <TouchableRipple
+            style={{ padding: 15 }}
+            onPress={async () => {
+              if (!visibilidadSnackbarInformacion)
+                setVisibilidadSnackbarInformacion(true);
+            }}
+          >
+            <Text variant="bodyLarge">Información</Text>
+          </TouchableRipple>
 
           <TouchableRipple
             style={{ padding: 15 }}
             onPress={async () => setValorLogin(valorLogin + 1)}
           >
-            <Text variant="bodyLarge">Otros datos</Text>
+            <Text variant="bodyLarge">Menú de testeo</Text>
           </TouchableRipple>
         </List.Section>
       </ScrollView>
 
-      <Snackbar visible={visibilidadSnackbar} onDismiss={cerrarSnackbar}>
+      {/* SNACKBARS */}
+      <Snackbar
+        duration={SNACKBAR_DURACION}
+        visible={visibilidadSnackbarInformacion}
+        onDismiss={cerrarSnackbarInformacion}
+      >
         <Text style={{ textAlign: "center", color: theme.colors.surface }}>
-          ¡Menú secreto activado!
+          Daniel Brugués Severyn - CFGS 2º DAM
+        </Text>
+      </Snackbar>
+      <Snackbar
+        duration={SNACKBAR_DURACION}
+        visible={visibilidadSnackbarMenuSecreto}
+        onDismiss={cerrarSnackbarMenuSecreto}
+      >
+        <Text style={{ textAlign: "center", color: theme.colors.surface }}>
+          ¡Menú de administración activado!
         </Text>
       </Snackbar>
     </View>

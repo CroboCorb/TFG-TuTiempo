@@ -180,10 +180,10 @@ export default function Ciudades() {
                     fontSize: 16,
                   }}
                 >
-                  {configuracion.unidadTemperatura === "celsius"
+                  Max {configuracion.unidadTemperatura === "celsius"
                     ? ciudad.meteorologia.pronostico_semanal[0].max_temp_c
                     : ciudad.meteorologia.pronostico_semanal[0].max_temp_f}
-                  {"° - "}
+                  {"° - Min "}
                   {configuracion.unidadTemperatura === "celsius"
                     ? ciudad.meteorologia.pronostico_semanal[0].min_temp_c
                     : ciudad.meteorologia.pronostico_semanal[0].min_temp_f}
