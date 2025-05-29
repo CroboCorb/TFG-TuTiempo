@@ -1,24 +1,25 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, StatusBar, FlatList, Dimensions } from "react-native";
+import { View, FlatList, Dimensions } from "react-native";
 import { useTheme, Appbar, Snackbar } from "react-native-paper";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 
 import CabeceraCentrada from "@/components/CabeceraCentrada";
 import PantallaCiudad from "@/components/PantallaCiudad";
 import PantallaCarga from "@/components/PantallaCarga";
 
-import { UbicacionActual } from "@/hooks/useLocationManager";
-import { consultaMeteorologiaPorCardinalidad_API } from "@/hooks/useAPIManager";
+import { infoSegunCardinalidad_API } from "@/functions/GestorAPI";
+import { UbicacionActual } from "@/functions/GestorUbicacion";
 
-import { InfoMeteorologia } from "@/types/InfoMeteorologia";
 import { Configuracion } from "@/types/Configuracion";
 import { Ciudad } from "@/types/ListadoCiudades";
-
-// CONSTANTES DE VENTANA
-const CIUDADES = "@usrCities";
-const CONFIG = "@appConfig";
+import {
+  actualizarListadoCiudades,
+  cargarConfiguracion,
+  cargarListadoCiudades,
+} from "@/functions/GestorAsyncStorage";
 
 const CONN_ERROR =
   "Hubo un error en la conexión. Inténtelo de nuevo más tarde.";
@@ -38,21 +39,16 @@ export default function PantallaTiempo() {
 
   const esPrimeraCarga = useRef(true);
   const [cargando, setEstadoCarga] = useState(true);
-  const [recarga, setRecarga] = useState(false);
-  const [renderizarPantalla, setRenderizadoPantalla] = useState(false);
 
   const [listadoCiudades, setListadoCiudades] = useState<Ciudad[]>([]);
-  const [infoMeteorologia, setInfoMeteorologia] = useState<InfoMeteorologia>(
-    {}
-  );
 
   const [snackbarError, setSnackbarError] = useState(false);
   const [snackbarErrorTXT, setSnackbarErrorTXT] = useState("");
 
   /** Método de carga de configuracion */
-  const cargarConfiguracion = async () => {
+  const cargarConfig = async () => {
     try {
-      const config = await AsyncStorage.getItem(CONFIG);
+      const config = await cargarConfiguracion();
       if (config) {
         setConfiguracion(JSON.parse(config));
         console.log("INDEX > Configuración cargada correctamente.");
@@ -65,7 +61,7 @@ export default function PantallaTiempo() {
   /** Método de carga de ciudades */
   const cargarCiudades = async () => {
     try {
-      const ciudades = await AsyncStorage.getItem(CIUDADES);
+      const ciudades = await cargarListadoCiudades();
       if (ciudades) {
         const ciudadesParseadas: Ciudad[] = JSON.parse(ciudades);
         setListadoCiudades(ciudadesParseadas);
@@ -81,17 +77,18 @@ export default function PantallaTiempo() {
   // Renderizado inicial
   useEffect(() => {
     const inicializar = async () => {
-      if (cargando) {
-        await cargarConfiguracion();
+      try {
+        await cargarConfig();
         const ciudades = await cargarCiudades();
 
-        while (!ciudades) return;
-
-        await obtenerPrevision(ciudades);
+        if (ciudades) await obtenerPrevision(ciudades);
+        else if (!ciudades) await obtenerPrevision(listadoCiudades);
+      } catch (e) {
+        console.error("Error durante la inicialización:", e);
       }
     };
 
-    inicializar();
+    if (cargando) inicializar();
   }, [cargando]);
 
   // Recarga al enfocar
@@ -102,7 +99,7 @@ export default function PantallaTiempo() {
         return;
       }
 
-      cargarConfiguracion();
+      cargarConfig();
       cargarCiudades();
     }, [])
   );
@@ -110,21 +107,34 @@ export default function PantallaTiempo() {
   /** Método encargado de obtener la previsión del
    * tiempo según la ubicación actual del usuario. */
   const obtenerPrevision = async (ciudades: Ciudad[]) => {
-    setRenderizadoPantalla(ciudades.length > 0);
-
     let resultado;
     const ubicacionActual = await UbicacionActual();
 
     if (ubicacionActual) {
-      resultado = await consultaMeteorologiaPorCardinalidad_API(
+      resultado = await infoSegunCardinalidad_API(
         ubicacionActual[0].toString(),
         ubicacionActual[1].toString()
       );
     }
 
     if (resultado && resultado.status === 200) {
-      setInfoMeteorologia(resultado.data);
-      await guardarInformacion(resultado.data, true);
+      const nuevaCiudad: Ciudad = {
+        nombre: resultado.data.ubicacion,
+        usaUbicacion: true,
+        ultimaActualizacion: new Date(),
+        meteorologia: resultado.data,
+      };
+
+      const valorRetorno = await actualizarListadoCiudades(
+        listadoCiudades,
+        nuevaCiudad,
+        false
+      );
+      if (valorRetorno) {
+        setListadoCiudades(valorRetorno);
+        console.log("INDEX > Listado de ciudades actualizado correctamente.");
+      } else
+        console.error("INDEX > Error al actualizar el listado de ciudades.");
     } else if (!resultado || (resultado && resultado.status !== 200)) {
       setSnackbarError(true);
 
@@ -136,91 +146,23 @@ export default function PantallaTiempo() {
     setEstadoCarga(false);
   };
 
-  /** Método de recarga de información meteorológica */
-  const actualizarInfo = useCallback(async () => {
-    setRecarga(true);
-    await obtenerPrevision(listadoCiudades);
-    setRecarga(false);
-  }, []);
-
-  /** Método encargado de guardar el valor en AsyncStorage, actualizando
-   * ciudades si ya existían o insertándolos en caso contrario.
-   * @param resultado Información meteorológica recibida del backend
-   * @param ubicacionUsada Valor de control, indica si se ha usado la
-   * ubicación para determinar la ciudad más cercana al usuario. */
-  const guardarInformacion = useCallback(
-    async (resultado: InfoMeteorologia, ubicacionUsada: boolean) => {
-      try {
-        const nuevaCiudad: Ciudad = {
-          nombre: resultado.ubicacion,
-          usaUbicacion: ubicacionUsada,
-          ultimaActualizacion: new Date(),
-          meteorologia: resultado,
-        };
-
-        let nuevoListado: Ciudad[] = [];
-        let ciudadActualizada = false;
-
-        for (const ciudad of listadoCiudades) {
-          if (
-            (ciudad.usaUbicacion && ubicacionUsada) ||
-            (!ubicacionUsada && ciudad.nombre === resultado.ubicacion)
-          ) {
-            nuevoListado.push(nuevaCiudad);
-            ciudadActualizada = true;
-          } else nuevoListado.push(ciudad);
-        }
-
-        if (!ciudadActualizada) nuevoListado.push(nuevaCiudad);
-
-        setListadoCiudades(nuevoListado);
-        await AsyncStorage.setItem(CIUDADES, JSON.stringify(nuevoListado));
-        console.log("INDEX > Listado de ciudades actualizado correctamente.");
-      } catch (error) {
-        console.error("INDEX > ", error);
-      }
-    },
-    [listadoCiudades]
-  );
-
   // =====================================
 
   if (cargando) return <PantallaCarga />;
 
-  return renderizarPantalla ? (
-    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <StatusBar barStyle="dark-content" />
-
-      {/* ---------- CABECERA ---------- */}
-      <Appbar.Header
-        style={{
-          backgroundColor: theme.colors.primary,
-          marginTop: 0,
-          marginBottom: -25,
-          zIndex: 10,
-        }}
-      >
-        <Appbar.Action
-          icon="plus"
-          iconColor={theme.colors.surface}
-          onPress={() => router.navigate("/ciudades")}
-        />
-        <CabeceraCentrada
-          title={listadoCiudades[0].nombre}
-          style={{ color: theme.colors.surface, fontWeight: "bold" }}
-          variant="titleLarge"
-        />
-        <Appbar.Action
-          icon="cog"
-          iconColor={theme.colors.surface}
-          onPress={() => router.navigate("/options")}
-        />
-      </Appbar.Header>
+  return listadoCiudades.length >= 1 ? (
+    <View style={{ flex: 1, backgroundColor: theme.colors.primary }}>
+      <StatusBar
+        style="light"
+        backgroundColor={theme.colors.primary}
+        translucent={false}
+      />
 
       <FlatList
         data={listadoCiudades}
         horizontal
         pagingEnabled
+        showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.nombre}
         renderItem={({ item }) => (
@@ -235,31 +177,36 @@ export default function PantallaTiempo() {
     </View>
   ) : (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar
+        style="light"
+        backgroundColor={theme.colors.primary}
+        translucent={false}
+      />
       <Appbar.Header
         style={{
           backgroundColor: theme.colors.primary,
+          position: "fixed",
           marginTop: 0,
-          marginBottom: -35,
+          marginBottom: -63,
           zIndex: 10,
         }}
       >
         <Appbar.Action
-          isLeading={true}
-          icon={"plus"}
+          icon="plus"
           iconColor={theme.colors.surface}
-          onPress={async () => {
-            router.navigate("/ciudades");
-          }}
+          style={{ backgroundColor: theme.colors.onPrimaryContainer }}
+          onPress={async () => router.navigate("/ciudades")}
         />
-        <Appbar.Content title="" />
+        <CabeceraCentrada
+          title={""}
+          style={{ color: theme.colors.surface, fontWeight: "bold" }}
+          variant="titleLarge"
+        />
         <Appbar.Action
-          isLeading={false}
-          icon={"cog"}
+          icon="cog"
           iconColor={theme.colors.surface}
-          onPress={async () => {
-            router.navigate("/options");
-          }}
+          style={{ backgroundColor: theme.colors.onPrimaryContainer }}
+          onPress={async () => router.navigate("/options")}
         />
       </Appbar.Header>
       <View style={{ backgroundColor: theme.colors.background }} />

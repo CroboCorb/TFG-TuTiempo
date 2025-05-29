@@ -10,35 +10,45 @@ import {
   TextInput,
   HelperText,
 } from "react-native-paper";
+import JSONTree from "react-native-json-tree";
+
+import { City, ICity } from "country-state-city";
 import { router } from "expo-router";
+import debounce from "lodash.debounce";
+import { StatusBar } from "expo-status-bar";
 
 import {
-  consultaMeteorologiaPorNombre_API,
+  infoSegunNombre_API,
   listadoCredenciales_API,
   listadoTokens_API,
   registrarUsuario_API,
-} from "@/hooks/useAPIManager";
-
-import JSONTree from "react-native-json-tree";
-import { City } from "country-state-city";
-import debounce from "lodash.debounce";
-
-import { useSession } from "@/functions/AuthProvider";
+} from "@/functions/GestorAPI";
+import { cargarToken } from "@/functions/GestorSecureStore";
+import encriptarTexto from "@/functions/Utilidades";
 
 export default function Testing() {
-  const { session } = useSession();
-
   const theme = useTheme();
   const emptyJSON = [
     {
       status: "empty",
     },
   ];
+  const [token, setToken] = useState<string>("");
+
+  useEffect(() => {
+    const precargaToken = async () => {
+      const tokenRecibido = await cargarToken();
+      if (tokenRecibido) setToken(tokenRecibido);
+      else router.back();
+    };
+
+    precargaToken();
+  }, []);
 
   // Variable y método de obtención del listado de credenciales
   const [listadoCredenciales, setListadoCredenciales] = useState(emptyJSON);
   const obtenerCredenciales = async () => {
-    const respuesta: any = await listadoCredenciales_API(session);
+    const respuesta: any = await listadoCredenciales_API(token);
     if (respuesta && respuesta.status === 200)
       setListadoCredenciales(respuesta);
   };
@@ -46,7 +56,7 @@ export default function Testing() {
   // Variable y método de obtención del listado de tokens
   const [listadoTokens, setListadoTokens] = useState(emptyJSON);
   const obtenerTokens = async () => {
-    const respuesta: any = await listadoTokens_API(session);
+    const respuesta: any = await listadoTokens_API(token);
     if (respuesta && respuesta.status === 200) setListadoTokens(respuesta);
   };
 
@@ -66,11 +76,15 @@ export default function Testing() {
   // Método de registro para un nuevo administrador
   const registrarUsuario = async (usuario: string, contrasena: string) => {
     const respuesta: any = await registrarUsuario_API(
-      session,
+      token,
       usuario,
-      contrasena
+      await encriptarTexto(contrasena)
     );
-    if (respuesta && respuesta.status === 200) setResultadoRegistro(respuesta);
+    if (respuesta && respuesta.status === 200) {
+      setResultadoRegistro(respuesta);
+      setUsuario("");
+      setContrasena("");
+    };
   };
 
   // Variables de control para la búsqueda de ciudades
@@ -78,7 +92,7 @@ export default function Testing() {
   const [infoMeteorologica, setInfoMeteorologica] = useState(emptyJSON);
 
   const [sugerenciasCiudades, setSugerenciasCiudades] = useState([]);
-  const [ciudadesPais] = useState(City.getCitiesOfCountry("ES"));
+  const [ciudadesPais] = useState<ICity[]>(City.getCitiesOfCountry("ES")!);
 
   // Filtrado con debounce (mejor UX)
   const filtrarCiudades = debounce((input) => {
@@ -99,10 +113,7 @@ export default function Testing() {
 
   // Método para la consulta de la meteorología de la ciudad solicitada
   const consultarDatosMeteorologicos = async () => {
-    const respuesta: any = await consultaMeteorologiaPorNombre_API(
-      session,
-      ciudadConsulta
-    );
+    const respuesta: any = await infoSegunNombre_API(ciudadConsulta);
     if (respuesta && respuesta.status === 200) setInfoMeteorologica(respuesta);
   };
 
@@ -124,15 +135,20 @@ export default function Testing() {
         backgroundColor: theme.colors.background,
       }}
     >
+      <StatusBar
+        style="light"
+        backgroundColor={theme.colors.background}
+        translucent={false}
+      />
       <Appbar.Header>
         <Appbar.BackAction
           onPress={async () => {
-            router.navigate("../");
+            router.back();
           }}
         />
         <Appbar.Content title="Zona de pruebas de API" />
         <Appbar.Action
-          icon="refresh"
+          icon="broom"
           onPress={async () => {
             limpiarJSON();
           }}

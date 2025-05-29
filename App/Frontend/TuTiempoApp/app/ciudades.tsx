@@ -1,22 +1,37 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { View, ScrollView, StyleSheet } from "react-native";
 import {
   Appbar,
   Button,
   Card,
   Divider,
+  Snackbar,
   Text,
   TextInput,
   useTheme,
 } from "react-native-paper";
-import debounce from "lodash.debounce";
-import { City } from "country-state-city";
-import { View, ScrollView, StyleSheet } from "react-native";
+
 import { router, useFocusEffect } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ciudad } from "@/types/ListadoCiudades";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
+import { City, ICity } from "country-state-city";
+import { StatusBar } from "expo-status-bar";
+import debounce from "lodash.debounce";
+
+import { Ciudad } from "@/types/ListadoCiudades";
+
+import { buscarCiudad, indexarCiudades } from "@/interface/EstadoYPaisDeCiudad";
+
+import { infoSegunNombre_API } from "@/functions/GestorAPI";
+import {
+  actualizarListadoCiudades,
+  cargarConfiguracion,
+  cargarListadoCiudades,
+} from "@/functions/GestorAsyncStorage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 const CIUDADES = "@usrCities";
+const indexCiudades = indexarCiudades();
 
 export default function Ciudades() {
   const theme = useTheme();
@@ -28,9 +43,37 @@ export default function Ciudades() {
     unidadMedidaPresion: "mb",
   });
 
+  // Método de carga de preferencias
+  const cargarPreferencias = async () => {
+    const preferencias = await cargarConfiguracion();
+    if (preferencias) {
+      console.log("CIUDADES > Configuración cargada correctamente.");
+      setConfiguracion(JSON.parse(preferencias));
+    } else console.error("CIUDADES > Error al cargar la configuración");
+  };
+
+  // Método de carga de ciudades guardadas
+  const cargarCiudades = useCallback(() => {
+    const cargar = async () => {
+      const ciudades = await cargarListadoCiudades();
+      if (ciudades) {
+        const ciudadesParseadas: Ciudad[] = JSON.parse(ciudades);
+        const ciudadesOrdenadas = ciudadesParseadas.sort(
+          (a, b) => (b.usaUbicacion ? 1 : 0) - (a.usaUbicacion ? 1 : 0)
+        );
+
+        setListadoCiudades(ciudadesOrdenadas);
+        console.log("CIUDADES > Ciudades cargadas correctamente.");
+      } else
+        console.error("CIUDADES > Error al cargar el listado de ciudades.");
+    };
+
+    cargar();
+  }, []);
+
   const [listadoCiudades, setListadoCiudades] = useState<Ciudad[]>([]);
   const [ciudadConsulta, setCiudadConsulta] = useState("");
-  const [sugerenciasCiudades, setSugerenciasCiudades] = useState([]);
+  const [sugerenciasCiudades, setSugerenciasCiudades] = useState<ICity[]>([]);
 
   // Filtrado con debounce (mejor UX)
   const filtrarCiudades = debounce((input) => {
@@ -48,60 +91,81 @@ export default function Ciudades() {
     filtrarCiudades(ciudadConsulta);
   }, [ciudadConsulta]);
 
-  /** Método de carga de preferencias */
-  const cargarPreferencias = async () => {
-    try {
-      const preferencias = await AsyncStorage.getItem(CONFIG);
-      if (preferencias) {
-        console.log("INDEX > Configuración cargada correctamente.");
-        setConfiguracion(JSON.parse(preferencias));
+  // Ejecución al recibir enfoque
+  useFocusEffect(
+    useCallback(() => {
+      cargarPreferencias();
+      cargarCiudades();
+    }, [])
+  );
+
+  const [snackbarVisibilidad, setSnackbarVisibilidad] =
+    useState<boolean>(false);
+  const [snackbarTexto, setSnackbarTexto] = useState<string>("");
+  const cerrarSnackbar = async () => setSnackbarVisibilidad(false);
+
+  const agregarNuevaCiudad = async () => {
+    if (listadoCiudades.length <= 10) {
+      const resultadoBusqueda = buscarCiudad(indexCiudades, ciudadConsulta);
+      const resultadoMeteo = await infoSegunNombre_API(
+        resultadoBusqueda[0].ciudad.replaceAll("'", "a ") +
+          "," +
+          resultadoBusqueda[0].nombreRegion
+      );
+
+      if (resultadoMeteo && resultadoMeteo.status === 200) {
+        const nuevaCiudad: Ciudad = {
+          nombre: resultadoMeteo.data.ubicacion,
+          usaUbicacion: false,
+          ultimaActualizacion: new Date(),
+          meteorologia: resultadoMeteo.data,
+        };
+
+        const resultado = await actualizarListadoCiudades(listadoCiudades, nuevaCiudad, false);
+        if (resultado) {
+          setListadoCiudades(resultado);
+          console.log("CIUDADES > Listado de ciudades actualizado correctamente.");
+        } else
+          console.error("CIUDADES > Error al actualizar el listado de ciudades.");
+      } else {
+        setSnackbarTexto("Error de comunicación. Inténtelo más tarde.");
+        setSnackbarVisibilidad(true);
       }
-    } catch (e) {
-      console.error("OPTIONS > Error al cargar la configuración:", e);
     }
   };
-
-  /** Método de carga de ciudades guardadas */
-  const cargarCiudades = useCallback(() => {
-    const cargar = async () => {
-      try {
-        const ciudades = await AsyncStorage.getItem(CIUDADES);
-        if (ciudades) {
-          const ciudadesParseadas: Ciudad[] = JSON.parse(ciudades);
-          setListadoCiudades(ciudadesParseadas);
-          console.log("CIUDADES > Ciudades cargadas correctamente.");
-        }
-      } catch (e) {
-        console.error("CIUDADES > Error al cargar las ciudades: ", e);
-      }
-    };
-
-    cargar();
-  }, []);
-
-  // Ejecución al recibir enfoque
-  useFocusEffect(useCallback(() => cargarCiudades(), []));
 
   /**
    * Método encargado de eliminar una ciudad del AsyncStorage
    * @param ciudad Ciudad a eliminar de AsyncStorage
    */
-  const eliminarCiudad = async (nombreCiudad: string) => {
-    try {
-      const nuevasCiudades = listadoCiudades.filter(
-        (c) => c.nombre.toLowerCase() !== nombreCiudad.toLowerCase()
-      );
+  const eliminarCiudad = async (
+    nombreCiudad: string,
+    usaUbicacion: boolean
+  ) => {
+    if (!usaUbicacion && listadoCiudades.length !== 1) {
+      try {
+        const nuevasCiudades = listadoCiudades.filter(
+          (c) => c.nombre.toLowerCase() !== nombreCiudad.toLowerCase()
+        );
 
-      setListadoCiudades(nuevasCiudades);
-      await AsyncStorage.setItem(CIUDADES, JSON.stringify(nuevasCiudades));
-      console.log("Ciudad eliminada correctamente.");
-    } catch (error) {
-      console.error("Error al eliminar la ciudad:", error);
+        setListadoCiudades(nuevasCiudades);
+        await AsyncStorage.setItem(CIUDADES, JSON.stringify(nuevasCiudades));
+
+        setSnackbarTexto("Ciudad eliminada correctamente.");
+        setSnackbarVisibilidad(true);
+      } catch (error) {
+        console.error("Error al eliminar la ciudad:", error);
+      }
     }
   };
 
   return (
     <View style={{ backgroundColor: theme.colors.background, flex: 1 }}>
+      <StatusBar
+        style="auto"
+        backgroundColor={theme.colors.background}
+        translucent={false}
+      />
       <Appbar.Header>
         <Appbar.BackAction
           onPress={async () => {
@@ -122,7 +186,7 @@ export default function Ciudades() {
           right={
             <TextInput.Icon
               icon="send"
-              onPress={async () => console.log("a")}
+              onPress={async () => agregarNuevaCiudad()}
             />
           }
         />
@@ -158,12 +222,18 @@ export default function Ciudades() {
             <Card
               key={index}
               style={{ marginTop: 15 }}
-              onLongPress={async () => ciudad.usaUbicacion ? {} : eliminarCiudad(ciudad.nombre)}
+              onLongPress={async () =>
+                eliminarCiudad(ciudad.nombre, ciudad.usaUbicacion)
+              }
             >
               <View style={styles.contenedor}>
                 <View style={{ flex: 1, flexDirection: "row" }}>
                   <MaterialCommunityIcons
-                    name={ciudad.usaUbicacion ? "map-marker-radius-outline" : "map-marker-plus-outline"}
+                    name={
+                      ciudad.usaUbicacion
+                        ? "map-marker-radius-outline"
+                        : "map-marker-plus-outline"
+                    }
                     size={24}
                     color={theme.colors.primary}
                   />
@@ -180,22 +250,37 @@ export default function Ciudades() {
                     fontSize: 16,
                   }}
                 >
-                  Max {configuracion.unidadTemperatura === "celsius"
-                    ? ciudad.meteorologia.pronostico_semanal[0].max_temp_c
-                    : ciudad.meteorologia.pronostico_semanal[0].max_temp_f}
-                  {"° - Min "}
                   {configuracion.unidadTemperatura === "celsius"
-                    ? ciudad.meteorologia.pronostico_semanal[0].min_temp_c
-                    : ciudad.meteorologia.pronostico_semanal[0].min_temp_f}
-                  °
+                    ? ciudad.meteorologia.pronostico_semanal[0].max_temp_c +
+                      "°C"
+                    : ciudad.meteorologia.pronostico_semanal[0].max_temp_f +
+                      "°F"}
+                  {" // "}
+                  {configuracion.unidadTemperatura === "celsius"
+                    ? ciudad.meteorologia.pronostico_semanal[0].min_temp_c +
+                      "°C"
+                    : ciudad.meteorologia.pronostico_semanal[0].min_temp_f +
+                      "°F"}
                 </Text>
               </View>
             </Card>
 
-            <Divider style={{ marginTop: 15 }} />
+            {ciudad.usaUbicacion ? (
+              <Divider style={{ marginTop: 15 }} />
+            ) : (
+              <View />
+            )}
           </View>
         ))}
       </ScrollView>
+
+      <Snackbar
+        visible={snackbarVisibilidad}
+        onDismiss={cerrarSnackbar}
+        duration={2500}
+      >
+        {snackbarTexto}
+      </Snackbar>
     </View>
   );
 }

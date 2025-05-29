@@ -9,13 +9,15 @@ import {
   useTheme,
 } from "react-native-paper";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { useSession } from "@/functions/AuthProvider";
+
 import PantallaCarga from "@/components/PantallaCarga";
+import { StatusBar } from "expo-status-bar";
+import { cargarToken, guardarToken } from "@/functions/GestorSecureStore";
+import { router } from "expo-router";
+import { iniciarSesion_API } from "@/functions/GestorAPI";
+import encriptarTexto from "@/functions/Utilidades";
 
 export default function Login() {
-  const { session, isLoading, verificarTokenUsuario, iniciarSesion } =
-    useSession();
-
   const theme = useTheme();
 
   const [usuario, setUsuario] = useState("");
@@ -31,7 +33,13 @@ export default function Login() {
     setCargaInicioSesion(true);
     setError(null);
     try {
-      await iniciarSesion({ usuario, contrasena });
+      const respuesta = await iniciarSesion_API(usuario, await encriptarTexto(contrasena));
+      if (respuesta) {
+        if (respuesta.status === 200) {
+          await guardarToken(respuesta.data);
+          router.replace("/admin/testing");
+        } else setError("Inicio de sesión incorrecto.");
+      } else setError("Error de conexión.");
     } catch (e) {
       setError("Ocurrió un error inesperado.");
     } finally {
@@ -40,26 +48,14 @@ export default function Login() {
   };
 
   useEffect(() => {
-    if (!session && isLoading) return;
+    const recogerToken = async () => {
+      const tokenGuardado = await cargarToken();
+      if (tokenGuardado) router.replace("/admin/testing");
+      else setEstadoCarga(false);
+    };
 
-    if (!isLoading) {
-      if (session) {
-        const verificarToken = async (token: string) => {
-          try {
-            await verificarTokenUsuario(token);
-          } catch (error) {
-            console.error("Error al cargar los datos del usuario:", error);
-          } finally {
-            setEstadoCarga(false);
-          }
-        };
-
-        verificarToken(session);
-      } else {
-        setEstadoCarga(false);
-      }
-    }
-  }, [session]);
+    recogerToken();
+  }, []);
 
   if (cargando) return <PantallaCarga />;
 
@@ -72,6 +68,11 @@ export default function Login() {
         padding: 20,
       }}
     >
+      <StatusBar
+        style="light"
+        backgroundColor={theme.colors.primary}
+        translucent={false}
+      />
       <Animated.View
         entering={FadeIn.duration(400)}
         style={{ alignItems: "center" }}

@@ -1,11 +1,8 @@
 import { useColorScheme } from "react-native";
-
-import { Slot } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-
 import { MD3DarkTheme, MD3LightTheme, PaperProvider } from "react-native-paper";
 import { useMaterial3Theme } from "@pchmn/expo-material3-theme";
-import { SessionProvider } from "@/functions/AuthProvider";
+
+import { Slot } from "expo-router";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -17,11 +14,8 @@ export default function RootLayout() {
       : { ...MD3LightTheme, colors: theme.light };
 
   return (
-    <SessionProvider>
-      <PaperProvider theme={paperTheme}>
-        <StatusBar style="dark" />
-        <Slot screenOptions={{ headerShown: false }} />
-      </PaperProvider>
-    </SessionProvider>
+    <PaperProvider theme={paperTheme}>
+      <Slot screenOptions={{ headerShown: false }} />
+    </PaperProvider>
   );
 }

@@ -41,7 +41,14 @@ export type InfoMeteorologia = {
         atardecer: string,
         fase_lunar: string,
     },
-    // alertas: {
-
-    // }
+    alertas: {
+        tipo: string,
+        gravedad: string,
+        areas: string,
+        evento: string,
+        fechaEfectiva: string,
+        fechaExpiracion: string,
+        descripcion: string,
+        instruccion: string,
+    }[]
 }

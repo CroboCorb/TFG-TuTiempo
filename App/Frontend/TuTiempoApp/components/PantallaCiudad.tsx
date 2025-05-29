@@ -1,9 +1,17 @@
-import React, { useEffect } from "react";
-import { ScrollView, View, StyleSheet, Linking } from "react-native";
+import React, { useEffect, useState } from "react";
 import {
+  ScrollView,
+  View,
+  StyleSheet,
+  Linking,
+  RefreshControl,
+} from "react-native";
+import {
+  Appbar,
   Card,
   Chip,
   Divider,
+  MD3Colors,
   Surface,
   Text,
   Tooltip,
@@ -19,8 +27,9 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { Configuracion } from "@/types/Configuracion";
 import { InfoMeteorologia } from "@/types/InfoMeteorologia";
-
-const COORDS_DEFECTO = [40.4165, -3.70256];
+import CabeceraCentrada from "./CabeceraCentrada";
+import { router } from "expo-router";
+import ModalAlerta from "./ModalAlerta";
 
 export default function PantallaCiudad({
   infoMeteorologia,
@@ -51,13 +60,45 @@ export default function PantallaCiudad({
     return () => clearInterval(interval);
   }, []);
 
+  const [datosModal, setDatosModal] = useState<InfoMeteorologia["alertas"]>();
+  const [visibilidadModal, setVisibilidadModal] = useState<boolean>(false);
+
   return (
     <View>
       <ScrollView
-      // refreshControl={
-      //   <RefreshControl refreshing={recarga} onRefresh={actualizarInfo} />
-      // }
+        showsVerticalScrollIndicator={false}
+        // refreshControl={
+        //   <RefreshControl refreshing={recarga} onRefresh={actualizarInfo} />
+        // }
       >
+        {/* ---------- CABECERA ---------- */}
+        <Appbar.Header
+          style={{
+            backgroundColor: "#0000",
+            marginTop: 0,
+            marginBottom: -25,
+            zIndex: 10,
+          }}
+        >
+          <Appbar.Action
+            icon="plus"
+            iconColor={theme.colors.surface}
+            style={{ backgroundColor: theme.colors.onPrimaryContainer }}
+            onPress={async () => router.navigate("/ciudades")}
+          />
+          <CabeceraCentrada
+            title={infoMeteorologia.ubicacion}
+            style={{ color: theme.colors.surface, fontWeight: "bold" }}
+            variant="titleLarge"
+          />
+          <Appbar.Action
+            icon="cog"
+            iconColor={theme.colors.surface}
+            style={{ backgroundColor: theme.colors.onPrimaryContainer }}
+            onPress={async () => router.navigate("/options")}
+          />
+        </Appbar.Header>
+
         {/* CABECERA DE INFORMACIÓN PRINCIPAL */}
         <View
           style={[
@@ -65,7 +106,14 @@ export default function PantallaCiudad({
             { backgroundColor: theme.colors.primary, paddingBottom: 25 },
           ]}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 15 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              marginTop: 15,
+            }}
+          >
             <Animated.Text
               style={[styles.temperatura, { color: theme.colors.surface }]}
             >
@@ -85,252 +133,323 @@ export default function PantallaCiudad({
               />
             </Animated.View>
           </View>
-          <Text style={{ fontSize: 18, color: theme.colors.surface, marginBottom: 8 }}>
+          <Text
+            style={{
+              fontSize: 18,
+              color: theme.colors.surface,
+              marginBottom: 8,
+            }}
+          >
             {infoMeteorologia.clima_actual.condicion}
           </Text>
-          <Text style={{ fontSize: 14, color: theme.colors.surfaceVariant, fontStyle: 'italic', marginBottom: -12 }}>
-            {new Date(infoMeteorologia.ultima_actualizacion).toLocaleString().slice(0, -3)}
+          <Text
+            style={{
+              fontSize: 14,
+              color: theme.colors.surfaceVariant,
+              fontStyle: "italic",
+              marginBottom: -12,
+            }}
+          >
+            {new Date(infoMeteorologia.ultima_actualizacion)
+              .toLocaleString()
+              .slice(0, -3)}
           </Text>
         </View>
 
         {/* RESUMEN GENERAL */}
-        <Surface style={styles.tarjetaInformacion}>
-          <View style={styles.detallesTiempo}>
-            {/* HUMEDAD */}
-            <View style={styles.elementoResumen}>
-              <MaterialCommunityIcons
-                name="water-percent"
-                size={24}
-                color={theme.colors.primary}
-              />
-              <Text style={styles.txtValor}>
-                {infoMeteorologia.clima_actual.humedad}%
-              </Text>
-              <Text style={styles.txtResumen}>Humedad</Text>
-            </View>
-
-            {/* VIENTO */}
-            <Tooltip
-              title={
-                infoMeteorologia.clima_actual.viento_direccion +
-                " - " +
-                infoMeteorologia.clima_actual.viento_grados +
-                "°"
-              }
-              enterTouchDelay={250}
-            >
+        <View style={{ backgroundColor: theme.colors.background }}>
+          <Surface style={styles.tarjetaInformacion}>
+            <View style={styles.detallesTiempo}>
+              {/* HUMEDAD */}
               <View style={styles.elementoResumen}>
                 <MaterialCommunityIcons
-                  name="weather-windy"
+                  name="water-percent"
                   size={24}
                   color={theme.colors.primary}
                 />
                 <Text style={styles.txtValor}>
-                  {configuracion.unidadMedidaViento === "kmh"
-                    ? infoMeteorologia.clima_actual.viento_kmh
-                    : infoMeteorologia.clima_actual.viento_mph}{" "}
-                  {configuracion.unidadMedidaViento === "kmh" ? "km/h" : "mph"}
+                  {infoMeteorologia.clima_actual.humedad}%
                 </Text>
-                <Text style={styles.txtResumen}>Viento</Text>
+                <Text style={styles.txtResumen}>Humedad</Text>
               </View>
-            </Tooltip>
 
-            {/* SENSACIÓN */}
-            <View style={styles.elementoResumen}>
-              <MaterialCommunityIcons
-                name="thermometer"
-                size={24}
-                color={theme.colors.primary}
-              />
-              <Text style={styles.txtValor}>
-                {configuracion.unidadTemperatura === "celsius"
-                  ? infoMeteorologia.clima_actual.temperatura_c
-                  : infoMeteorologia.clima_actual.temperatura_f}
-                °
-              </Text>
-              <Text style={styles.txtResumen}>Sensación</Text>
+              {/* VIENTO */}
+              <Tooltip
+                title={
+                  infoMeteorologia.clima_actual.viento_direccion +
+                  " - " +
+                  infoMeteorologia.clima_actual.viento_grados +
+                  "°"
+                }
+                enterTouchDelay={250}
+              >
+                <View style={styles.elementoResumen}>
+                  <MaterialCommunityIcons
+                    name="weather-windy"
+                    size={24}
+                    color={theme.colors.primary}
+                  />
+                  <Text style={styles.txtValor}>
+                    {configuracion.unidadMedidaViento === "kmh"
+                      ? infoMeteorologia.clima_actual.viento_kmh
+                      : infoMeteorologia.clima_actual.viento_mph}{" "}
+                    {configuracion.unidadMedidaViento === "kmh"
+                      ? "km/h"
+                      : "mph"}
+                  </Text>
+                  <Text style={styles.txtResumen}>Viento</Text>
+                </View>
+              </Tooltip>
+
+              {/* SENSACIÓN */}
+              <View style={styles.elementoResumen}>
+                <MaterialCommunityIcons
+                  name="thermometer"
+                  size={24}
+                  color={theme.colors.primary}
+                />
+                <Text style={styles.txtValor}>
+                  {configuracion.unidadTemperatura === "celsius"
+                    ? infoMeteorologia.clima_actual.temperatura_c
+                    : infoMeteorologia.clima_actual.temperatura_f}
+                  °
+                </Text>
+                <Text style={styles.txtResumen}>Sensación</Text>
+              </View>
             </View>
-          </View>
-        </Surface>
+          </Surface>
 
-        {/* PRONÓSTICO DEL DÍA */}
-        <Card style={styles.tarjetaPrevision}>
-          <Card.Title title="Previsión del día" />
-          <Card.Content>
-            <ScrollView
-              contentContainerStyle={styles.contenedorPorHora}
-              horizontal
-              nestedScrollEnabled={true}
-              showsHorizontalScrollIndicator={false}
-            >
-              {infoMeteorologia.pronostico_actual.map(
-                (pronostico: any, index: number) => (
-                  <View key={index} style={{ alignItems: "center" }}>
-                    {index === new Date().getHours() ? (
-                      <View style={{ alignItems: "center" }}>
-                        <Text
-                          style={[
-                            styles.txtPrevisionHora,
-                            { fontWeight: "bold" },
-                          ]}
-                        >
-                          AHORA
-                        </Text>
-                        <Animated.View style={estiloAnimadoIcono}>
+          {/* PRONÓSTICO DEL DÍA */}
+          <Card style={styles.tarjetaPrevision}>
+            <Card.Title title="Previsión del día" />
+            <Card.Content>
+              <ScrollView
+                contentContainerStyle={styles.contenedorPorHora}
+                horizontal
+                nestedScrollEnabled={true}
+                showsHorizontalScrollIndicator={false}
+              >
+                {infoMeteorologia.pronostico_actual.map(
+                  (pronostico: any, index: number) => (
+                    <View key={index} style={{ alignItems: "center" }}>
+                      {index === new Date().getHours() ? (
+                        <View style={{ alignItems: "center" }}>
+                          <Text
+                            style={[
+                              styles.txtPrevisionHora,
+                              { fontWeight: "bold" },
+                            ]}
+                          >
+                            AHORA
+                          </Text>
+                          <Animated.View style={estiloAnimadoIcono}>
+                            <MaterialCommunityIcons
+                              name={pronostico.icono}
+                              size={32}
+                              color={theme.colors.primary}
+                            />
+                          </Animated.View>
+                        </View>
+                      ) : (
+                        <View style={{ alignItems: "center" }}>
+                          <Text style={styles.txtPrevisionHora}>
+                            {pronostico.hora}
+                          </Text>
                           <MaterialCommunityIcons
                             name={pronostico.icono}
                             size={32}
                             color={theme.colors.primary}
                           />
-                        </Animated.View>
-                      </View>
-                    ) : (
-                      <View style={{ alignItems: "center" }}>
-                        <Text style={styles.txtPrevisionHora}>
-                          {pronostico.hora}
-                        </Text>
-                        <MaterialCommunityIcons
-                          name={pronostico.icono}
-                          size={32}
-                          color={theme.colors.primary}
-                        />
-                      </View>
+                        </View>
+                      )}
+                      <Text style={styles.temperaturaPorHoras}>
+                        {configuracion.unidadTemperatura === "celsius"
+                          ? pronostico.temp_c
+                          : pronostico.temp_f}
+                        °
+                      </Text>
+                    </View>
+                  )
+                )}
+              </ScrollView>
+            </Card.Content>
+          </Card>
+
+          {/* PRONÓSTICO DE PRÓXIMOS 3 DÍAS */}
+          <Card style={styles.tarjetaPrevision}>
+            <Card.Title title="Previsión de 3 días" />
+            <Card.Content>
+              {infoMeteorologia.pronostico_semanal.map(
+                (dia: any, index: number) => (
+                  <React.Fragment key={dia.fecha}>
+                    <View style={styles.previsionDiaria}>
+                      <Text style={styles.diaPrevision}>
+                        {index === 0 ? "Hoy" : dia.fecha}
+                      </Text>
+                      <MaterialCommunityIcons
+                        name={dia.icono}
+                        size={32}
+                        color={theme.colors.primary}
+                      />
+                      <Text style={styles.previsionTemperatura}>
+                        {configuracion.unidadTemperatura === "celsius"
+                          ? dia.max_temp_c
+                          : dia.max_temp_f}
+                        ° /{" "}
+                        {configuracion.unidadTemperatura === "celsius"
+                          ? dia.min_temp_c
+                          : dia.min_temp_f}
+                        °
+                      </Text>
+                    </View>
+                    {index < infoMeteorologia.pronostico_semanal.length - 1 && (
+                      <Divider />
                     )}
-                    <Text style={styles.temperaturaPorHoras}>
-                      {configuracion.unidadTemperatura === "celsius"
-                        ? pronostico.temp_c
-                        : pronostico.temp_f}
-                      °
-                    </Text>
-                  </View>
+                  </React.Fragment>
                 )
               )}
-            </ScrollView>
-          </Card.Content>
-        </Card>
+            </Card.Content>
+          </Card>
 
-        {/* PRONÓSTICO DE PRÓXIMOS 3 DÍAS */}
-        <Card style={styles.tarjetaPrevision}>
-          <Card.Title title="Previsión de 3 días" />
-          <Card.Content>
-            {infoMeteorologia.pronostico_semanal.map(
-              (dia: any, index: number) => (
-                <React.Fragment key={dia.fecha}>
-                  <View style={styles.previsionDiaria}>
-                    <Text style={styles.diaPrevision}>
-                      {index === 0 ? "Hoy" : dia.fecha}
-                    </Text>
+          {/* INFORMACIÓN VARIADA */}
+          <View
+            style={{
+              flexDirection: "row",
+              columnGap: 16,
+              marginBottom: 16,
+              marginHorizontal: 16,
+            }}
+          >
+            {/* INFORMACION ASTRONÓMICA */}
+            <Card style={{ flex: 1 }}>
+              <Card.Title title="Astronomía" />
+              <Card.Content>
+                <Text style={{ fontWeight: "bold" }}>
+                  Amanecer: <Text>{infoMeteorologia.astronomia.amanecer}</Text>
+                </Text>
+                <Text style={{ fontWeight: "bold" }}>
+                  Atardecer:{" "}
+                  <Text>{infoMeteorologia.astronomia.atardecer}</Text>
+                </Text>
+                <Text style={{ fontWeight: "bold" }}>
+                  Fase: <Text>{infoMeteorologia.astronomia.fase_lunar}</Text>
+                </Text>
+              </Card.Content>
+            </Card>
+
+            {/* INFORMACIÓN GENERAL */}
+            <Card style={{ flex: 1 }}>
+              <Card.Title title="General" />
+              <Card.Content>
+                <Text style={{ fontWeight: "bold" }}>
+                  Lluvia:{" "}
+                  <Text>
+                    {infoMeteorologia.pronostico_semanal[0].prob_lluvia}%
+                  </Text>
+                </Text>
+                <Text style={{ fontWeight: "bold" }}>
+                  Nieve:{" "}
+                  <Text>
+                    {infoMeteorologia.pronostico_semanal[1].prob_nieve}%
+                  </Text>
+                </Text>
+                <Text style={{ fontWeight: "bold" }}>
+                  Presión:{" "}
+                  <Text>
+                    {configuracion.unidadMedidaPresion === "mb"
+                      ? infoMeteorologia.clima_actual.presion_mb + " mb"
+                      : infoMeteorologia.clima_actual.presion_in + " in"}
+                  </Text>
+                </Text>
+                <Text style={{ fontWeight: "bold" }}>
+                  Hora local:{" "}
+                  <Text>{infoMeteorologia.hora_local.split(" ")[1]}</Text>
+                </Text>
+              </Card.Content>
+            </Card>
+          </View>
+
+          {/* ALERTAS METEOROLÓGICAS */}
+          {infoMeteorologia.alertas.length > 0 ? (
+            <Card style={styles.tarjetaPrevision}>
+              <View style={{ marginTop: 8 }} />
+              {infoMeteorologia.alertas.map((alerta, index) => (
+                <Chip
+                  key={index}
+                  icon={() => (
                     <MaterialCommunityIcons
-                      name={dia.icono}
-                      size={32}
-                      color={theme.colors.primary}
+                      name="alert"
+                      size={18}
+                      color={
+                        alerta.gravedad === "Alta" ? MD3Colors.error50 : MD3Colors.error70
+                      }
                     />
-                    <Text style={styles.previsionTemperatura}>
-                      {configuracion.unidadTemperatura === "celsius"
-                        ? dia.max_temp_c
-                        : dia.max_temp_f}
-                      ° /{" "}
-                      {configuracion.unidadTemperatura === "celsius"
-                        ? dia.min_temp_c
-                        : dia.min_temp_f}
-                      °
-                    </Text>
-                  </View>
-                  {index < infoMeteorologia.pronostico_semanal.length - 1 && (
-                    <Divider />
                   )}
-                </React.Fragment>
-              )
-            )}
-          </Card.Content>
-        </Card>
+                  style={{
+                    backgroundColor: theme.colors.primaryContainer,
+                    margin: 8,
+                    marginStart: 12,
+                    marginEnd: 12,
+                  }}
+                  elevated={true}
+                  elevation={1}
+                  onPress={async () => {
+                    setDatosModal(alerta);
+                    setVisibilidadModal(true);
+                  }}
+                >
+                  <Text
+                    style={{
+                      flex: 1,
+                      flexWrap: "wrap",
+                      color: theme.colors.onPrimaryContainer,
+                    }}
+                  >
+                    {alerta.evento}
+                  </Text>
+                </Chip>
+              ))}
+              <View style={{ marginBottom: 8 }} />
+            </Card>
+          ) : (
+            <Card style={styles.tarjetaPrevision}>
+              <Card.Title title="Alertas meteorológicas" />
+              <Card.Content style={{ display: "flex" }}>
+                <Chip
+                  icon="check"
+                  style={{ backgroundColor: theme.colors.primaryContainer }}
+                  textStyle={{ color: theme.colors.onPrimaryContainer }}
+                >
+                  Sin alertas
+                </Chip>
+              </Card.Content>
+            </Card>
+          )}
 
-        {/* INFORMACIÓN VARIADA */}
-        <View
-          style={{
-            flexDirection: "row",
-            columnGap: 16,
-            marginBottom: 16,
-            marginHorizontal: 16,
-          }}
-        >
-          {/* INFORMACION ASTRONÓMICA */}
-          <Card style={{ flex: 1 }}>
-            <Card.Title title="Astronomía" />
-            <Card.Content>
-              <Text style={{ fontWeight: "bold" }}>
-                Amanecer: <Text>{infoMeteorologia.astronomia.amanecer}</Text>
-              </Text>
-              <Text style={{ fontWeight: "bold" }}>
-                Atardecer: <Text>{infoMeteorologia.astronomia.atardecer}</Text>
-              </Text>
-              <Text style={{ fontWeight: "bold" }}>
-                Fase: <Text>{infoMeteorologia.astronomia.fase_lunar}</Text>
-              </Text>
-            </Card.Content>
-          </Card>
-
-          {/* INFORMACIÓN GENERAL */}
-          <Card style={{ flex: 1 }}>
-            <Card.Title title="General" />
-            <Card.Content>
-              <Text style={{ fontWeight: "bold" }}>
-                Lluvia:{" "}
-                <Text>
-                  {infoMeteorologia.pronostico_semanal[0].prob_lluvia}%
-                </Text>
-              </Text>
-              <Text style={{ fontWeight: "bold" }}>
-                Nieve:{" "}
-                <Text>
-                  {infoMeteorologia.pronostico_semanal[1].prob_nieve}%
-                </Text>
-              </Text>
-              <Text style={{ fontWeight: "bold" }}>
-                Presión:{" "}
-                <Text>
-                  {configuracion.unidadMedidaPresion === "mb"
-                    ? infoMeteorologia.clima_actual.presion_mb + " mb"
-                    : infoMeteorologia.clima_actual.presion_in + " in"}
-                </Text>
-              </Text>
-              <Text style={{ fontWeight: "bold" }}>
-                Hora local:{" "}
-                <Text>{infoMeteorologia.hora_local.split(" ")[1]}</Text>
-              </Text>
-            </Card.Content>
-          </Card>
+          <Text
+            style={{
+              textAlign: "center",
+              fontStyle: "italic",
+              color: "grey",
+              marginBottom: 16,
+            }}
+            variant="bodySmall"
+            onPress={async () => {
+              Linking.openURL("https://www.weatherapi.com");
+            }}
+          >
+            Datos obtenidos a través de WeatherAPI.com
+          </Text>
         </View>
-
-        {/* ALERTAS METEOROLÓGICAS */}
-        <Card style={styles.tarjetaPrevision}>
-          <Card.Title title="Alertas meteorológicas" />
-          <Card.Content style={{ display: "flex" }}>
-            <Chip
-              icon="alert"
-              style={{ backgroundColor: theme.colors.primaryContainer }}
-              textStyle={{ color: theme.colors.onPrimaryContainer }}
-            >
-              Por implementar
-            </Chip>
-          </Card.Content>
-        </Card>
-
-        <Text
-          style={{
-            textAlign: "center",
-            fontStyle: "italic",
-            color: "grey",
-            marginBottom: 16,
-          }}
-          variant="bodySmall"
-          onPress={async () => {
-            Linking.openURL("https://www.weatherapi.com");
-          }}
-        >
-          Datos obtenidos a través de WeatherAPI.com
-        </Text>
       </ScrollView>
+
+      {visibilidadModal && (
+        <ModalAlerta
+          visibilidadModal={visibilidadModal}
+          cerrarModal={async () => setVisibilidadModal(false)}
+          infoAlerta={datosModal}
+        />
+      )}
     </View>
   );
 }

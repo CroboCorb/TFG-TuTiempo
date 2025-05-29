@@ -1,9 +1,8 @@
 import axios from "axios";
-import encriptar from "./usePasswordCrypt";
 
 // ========== CONSTANTES ==========
 
-const REQUEST_TIMEOUT = 2000;
+const REQUEST_TIMEOUT = 2500;
 
 const API_URL = "http://10.244.217.31:8000";
 
@@ -113,7 +112,7 @@ export const registrarUsuario_API = async (
   try {
     const respuesta = await axios.put(
       API_REGISTRO,
-      { username: username, password: encriptar(password) },
+      { username: username, password: password },
       {
         timeout: REQUEST_TIMEOUT,
         headers: { Authorization: `Bearer ${token}` },
@@ -159,14 +158,14 @@ export const verificarToken_API = async (token: string) => {
 
 /**
  * Método encargado de consultar los datos meteorológicos de la ciudad solicitada
- * @param ciudad Nombre de la ciudad a buscar
+ * @param ciudad Nombre de la ciudad (+ región) a buscar
  * @returns JSON con datos meteorológicos
  */
-export const consultaMeteorologiaPorNombre_API = async (ciudad: string) => {
+export const infoSegunNombre_API = async (ciudadYRegion: string) => {
   try {
     const respuesta = await axios.get(API_METEOROLOGIA_CIUDAD, {
       timeout: REQUEST_TIMEOUT,
-      params: { ciudad: ciudad },
+      params: { ciudadYRegion: ciudadYRegion },
     });
 
     return respuesta;
@@ -188,7 +187,7 @@ export const consultaMeteorologiaPorNombre_API = async (ciudad: string) => {
  * @param longitud Longitud del usuario
  * @returns JSON con datos meteorológicos
  */
-export const consultaMeteorologiaPorCardinalidad_API = async (
+export const infoSegunCardinalidad_API = async (
   latitud: string,
   longitud: string
 ) => {

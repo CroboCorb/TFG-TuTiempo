@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Tu Tiempo",
-    "slug": "Tu Tiempo",
+    "slug": "Tu-Tiempo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -36,19 +36,18 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-secure-store",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "kotlinVersion": "1.9.22",
-            "jvmTarget": "17"
-          }
-        }
-      ]
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "42b9db22-bb48-4cd3-9ed9-94113f630e66"
+      }
     }
   }
 }

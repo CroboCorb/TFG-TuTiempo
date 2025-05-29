@@ -11,12 +11,12 @@ import {
   TouchableRipple,
   Snackbar,
 } from "react-native-paper";
+import Animated, { FadeIn } from "react-native-reanimated";
 
-import { router } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import Animated, { Animation, FadeIn } from "react-native-reanimated";
+import { router, useFocusEffect } from "expo-router";
 
-const CONFIG = "@appConfig";
+import { cargarConfiguracion, guardarConfiguracion } from "@/functions/GestorAsyncStorage";
+import { StatusBar } from "expo-status-bar";
 
 const SNACKBAR_DURACION = 2500;
 
@@ -40,55 +40,52 @@ export default function Options() {
 
   const [unidadTemperatura, setUnidadTemperatura] = useState("celsius");
   const [unidadMedidaViento, setUnidadMedidaViento] = useState("kmh");
-  const [unidadMedidaPresion, setUnidadMedidaPresion] = useState("hPa");
+  const [unidadMedidaPresion, setUnidadMedidaPresion] = useState("mb");
 
   const [cargando, setEstadoCarga] = useState(true);
 
   // Cargar la configuración del usuario
   useEffect(() => {
-    const cargarConfiguracion = async () => {
-      try {
-        const jsonValue = await AsyncStorage.getItem(CONFIG);
-        if (jsonValue) {
-          const saved = JSON.parse(jsonValue);
-          setUnidadTemperatura(saved.unidadTemperatura || "celsius");
-          setUnidadMedidaViento(saved.unidadMedidaViento || "kmh");
-          setUnidadMedidaPresion(saved.unidadMedidaPresion || "mb");
-        }
-      } catch (e) {
-        console.error("OPTIONS > Error al cargar la configuración:", e);
-      } finally {
+    const carga = async () => {
+      const configuracion = await cargarConfiguracion();
+      if (configuracion) {
+        const valores = JSON.parse(configuracion);
+        setUnidadTemperatura(valores.unidadTemperatura || "celsius");
+        setUnidadMedidaViento(valores.unidadMedidaViento || "kmh");
+        setUnidadMedidaPresion(valores.unidadMedidaPresion || "mb");
+
         console.log("OPTIONS > Configuración cargada correctamente.");
-        setEstadoCarga(false);
-      }
+      } else 
+        console.warn("OPTIONS > No existe configuración en memoria.");
+
+      setEstadoCarga(false);
     };
 
-    cargarConfiguracion();
+    carga();
   }, []);
 
   // Guardar los cambios del usuario
-  const guardarConfiguracion = async (newSettings: any) => {
-    try {
-      const updated = {
+  const guardado = async (nuevaConfiguracion: any) => {
+    const configuracion = {
         unidadTemperatura,
         unidadMedidaViento,
         unidadMedidaPresion,
-        ...newSettings,
+        ...nuevaConfiguracion,
       };
-      await AsyncStorage.setItem(CONFIG, JSON.stringify(updated));
+
+    const configGuardada = await guardarConfiguracion(JSON.stringify(configuracion));
+
+    if (configGuardada)
       console.log("OPTIONS > Configuración guardada correctamente.");
-    } catch (e) {
-      console.error(
-        "OPTIONS > Error al guardar los cambios en la configuración:",
-        e
-      );
-    }
+    else
+      console.error("OPTIONS > Error al guardar los cambios en la configuración");
   };
 
   if (cargando) return <ActivityIndicator style={{ marginTop: 50 }} />;
 
   return (
     <View style={{ backgroundColor: theme.colors.background, flex: 1 }}>
+      <StatusBar style="auto" backgroundColor={theme.colors.background} translucent={false} />
       <Appbar.Header>
         <Appbar.BackAction
           onPress={async () => {
@@ -122,7 +119,7 @@ export default function Options() {
             value={unidadTemperatura}
             onValueChange={(value) => {
               setUnidadTemperatura(value);
-              guardarConfiguracion({ unidadTemperatura: value });
+              guardado({ unidadTemperatura: value });
             }}
           >
             <RadioButton.Item label="Celsius (°C)" value="celsius" />
@@ -143,7 +140,7 @@ export default function Options() {
             value={unidadMedidaViento}
             onValueChange={(value) => {
               setUnidadMedidaViento(value);
-              guardarConfiguracion({ unidadMedidaViento: value });
+              guardado({ unidadMedidaViento: value });
             }}
           >
             <RadioButton.Item label="Kilómetros por hora (km/h)" value="kmh" />
@@ -164,7 +161,7 @@ export default function Options() {
             value={unidadMedidaPresion}
             onValueChange={(value) => {
               setUnidadMedidaPresion(value);
-              guardarConfiguracion({ unidadMedidaPresion: value });
+              guardado({ unidadMedidaPresion: value });
             }}
           >
             <RadioButton.Item label="Milibares (mb)" value="mb" />
