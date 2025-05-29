@@ -184,19 +184,13 @@ async def verificarToken(token: str = Query(..., description="Token JWT a verifi
 
 @app.get(
     "/meteorologia/ciudad",
-    summary="Obtener información meteorológica según nombre de ciudad",
-    description="Controlador encargado de recibir la información meteorológica de una ciudad por su nombre",
+    summary="Obtener información meteorológica según palabra clave.",
+    description="Controlador encargado de recibir la información meteorológica de una ciudad por su nombre y su región.",
     tags=["Meteorología"]
 )
-async def infoMeteorologíaPorNombre(ciudad: str, db: db_dependency):
-    url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={f"{ciudad},Spain"}&days=7&aqi=no&alerts=yes&lang=es"
+async def infoMeteorologíaPorNombre(ciudadYRegion: str, db: db_dependency):
+    url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={f"{ciudadYRegion},Spain"}&days=7&aqi=no&alerts=yes&lang=es"
     respuesta = requests.get(url)
-
-    # Reintento de búsqueda si no coincide el nombre de resultado (L'Escala, L'Ametlla, etc)
-    if (respuesta.json()["location"]["name"].lower() != ciudad.lower()) & (ciudad.lower().startswith('l\'')):
-        ciudad = ciudad.lower().replace('l\'', 'la ')
-        url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={f"{ciudad},Spain"}&days=7&aqi=no&alerts=yes&lang=es"
-        respuesta = requests.get(url)
     
     if respuesta.status_code == 200:
         return await limpiezaDatosPronostico(respuesta.json(), url.split("&days")[0])
@@ -280,7 +274,18 @@ async def limpiezaDatosPronostico(pronostico, url: str):
             } for dia in pronostico["forecast"]["forecastday"]
         ],
         "astronomia": datosAstronomia,
-        "alertas": pronostico["alerts"]["alert"]
+        "alertas": [
+            {
+                "tipo": await traducirTexto(str(alerta["msgtype"])),
+                "gravedad": await traducirTexto(str(alerta["severity"])),
+                "areas": alerta["areas"],
+                "evento": alerta["event"],
+                "fechaEfectiva": alerta["effective"],
+                "fechaExpiracion": alerta["expires"],
+                "descripcion": alerta["desc"],
+                "instruccion": alerta["instruction"],
+            } for alerta in reversed(pronostico["alerts"]["alert"])
+        ]
     }
 
 async def sustituirIconoTiempo(numIcono: str, esDia: int):
@@ -293,3 +298,13 @@ async def sustituirIconoTiempo(numIcono: str, esDia: int):
         return iconoMDI
     else:
         return "weather-cloudy-alert"
+    
+async def traducirTexto(cadena: str):
+    if cadena == "Alert":
+        return "Alerta"
+    elif cadena == "Update":
+        return "Actualización"
+    elif cadena == "Severe":
+        return "Alta"
+    elif cadena == "Moderate":
+        return "Moderada"
