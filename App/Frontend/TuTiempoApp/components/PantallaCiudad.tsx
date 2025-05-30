@@ -30,13 +30,21 @@ import { InfoMeteorologia } from "@/types/InfoMeteorologia";
 import CabeceraCentrada from "./CabeceraCentrada";
 import { router } from "expo-router";
 import ModalAlerta from "./ModalAlerta";
+import { UbicacionActual } from "@/functions/GestorUbicacion";
+import { infoSegunCardinalidad_API, infoSegunNombre_API } from "@/functions/GestorAPI";
+import { actualizarListadoCiudades } from "@/functions/GestorAsyncStorage";
+import { Ciudad } from "@/types/ListadoCiudades";
 
 export default function PantallaCiudad({
   infoMeteorologia,
   configuracion,
+  esPorUbicacion,
+  onUpdate,
 }: {
   infoMeteorologia: InfoMeteorologia;
   configuracion: Configuracion;
+  esPorUbicacion: boolean;
+  onUpdate?: () => void;
 }) {
   const theme = useTheme();
 
@@ -63,13 +71,51 @@ export default function PantallaCiudad({
   const [datosModal, setDatosModal] = useState<InfoMeteorologia["alertas"]>();
   const [visibilidadModal, setVisibilidadModal] = useState<boolean>(false);
 
+  const [recarga, setEstadoRecarga] = useState(false);
+  const actualizarInfo = async () => {
+    setEstadoRecarga(true);
+    let resultado;
+
+    if (esPorUbicacion) {
+      const ubicacionActual = await UbicacionActual();
+
+      if (ubicacionActual) {
+        resultado = await infoSegunCardinalidad_API(
+          ubicacionActual[0].toString(),
+          ubicacionActual[1].toString()
+        );
+      }
+    } else {
+      resultado = await infoSegunNombre_API(infoMeteorologia.ubicacion);
+    }
+
+    if (resultado && resultado.status === 200) {
+      const nuevaCiudad: Ciudad = {
+        nombre: resultado.data.ubicacion,
+        usaUbicacion: esPorUbicacion,
+        ultimaActualizacion: new Date(),
+        meteorologia: resultado.data,
+      };
+
+      const valorRetorno = await actualizarListadoCiudades(nuevaCiudad);
+      if (valorRetorno) {
+        onUpdate?.();
+      } else
+        console.error("INDEX > Error al actualizar el listado de ciudades.");
+    } else if (!resultado || (resultado && resultado.status !== 200)) {
+      console.error("PantallaCiudad > CONN ERROR.");
+    }
+
+    setEstadoRecarga(false);
+  };
+
   return (
     <View>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        // refreshControl={
-        //   <RefreshControl refreshing={recarga} onRefresh={actualizarInfo} />
-        // }
+        refreshControl={
+          <RefreshControl refreshing={recarga} onRefresh={actualizarInfo} />
+        }
       >
         {/* ---------- CABECERA ---------- */}
         <Appbar.Header
@@ -90,6 +136,7 @@ export default function PantallaCiudad({
             title={infoMeteorologia.ubicacion}
             style={{ color: theme.colors.surface, fontWeight: "bold" }}
             variant="titleLarge"
+            esPorUbicacion={esPorUbicacion}
           />
           <Appbar.Action
             icon="cog"
@@ -210,8 +257,8 @@ export default function PantallaCiudad({
                 />
                 <Text style={styles.txtValor}>
                   {configuracion.unidadTemperatura === "celsius"
-                    ? infoMeteorologia.clima_actual.temperatura_c
-                    : infoMeteorologia.clima_actual.temperatura_f}
+                    ? infoMeteorologia.clima_actual.sensacion_c
+                    : infoMeteorologia.clima_actual.sensacion_f}
                   °
                 </Text>
                 <Text style={styles.txtResumen}>Sensación</Text>
@@ -381,7 +428,9 @@ export default function PantallaCiudad({
                       name="alert"
                       size={18}
                       color={
-                        alerta.gravedad === "Alta" ? MD3Colors.error50 : MD3Colors.error70
+                        alerta.gravedad === "Alta"
+                          ? MD3Colors.error50
+                          : MD3Colors.error70
                       }
                     />
                   )}

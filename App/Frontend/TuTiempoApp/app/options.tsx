@@ -15,7 +15,10 @@ import Animated, { FadeIn } from "react-native-reanimated";
 
 import { router, useFocusEffect } from "expo-router";
 
-import { cargarConfiguracion, guardarConfiguracion } from "@/functions/GestorAsyncStorage";
+import {
+  cargarConfiguracion,
+  guardarConfiguracion,
+} from "@/functions/GestorAsyncStorage";
 import { StatusBar } from "expo-status-bar";
 
 const SNACKBAR_DURACION = 2500;
@@ -55,8 +58,7 @@ export default function Options() {
         setUnidadMedidaPresion(valores.unidadMedidaPresion || "mb");
 
         console.log("OPTIONS > Configuración cargada correctamente.");
-      } else 
-        console.warn("OPTIONS > No existe configuración en memoria.");
+      } else console.warn("OPTIONS > No existe configuración en memoria.");
 
       setEstadoCarga(false);
     };
@@ -67,25 +69,33 @@ export default function Options() {
   // Guardar los cambios del usuario
   const guardado = async (nuevaConfiguracion: any) => {
     const configuracion = {
-        unidadTemperatura,
-        unidadMedidaViento,
-        unidadMedidaPresion,
-        ...nuevaConfiguracion,
-      };
+      unidadTemperatura,
+      unidadMedidaViento,
+      unidadMedidaPresion,
+      ...nuevaConfiguracion,
+    };
 
-    const configGuardada = await guardarConfiguracion(JSON.stringify(configuracion));
+    const configGuardada = await guardarConfiguracion(
+      JSON.stringify(configuracion)
+    );
 
     if (configGuardada)
       console.log("OPTIONS > Configuración guardada correctamente.");
     else
-      console.error("OPTIONS > Error al guardar los cambios en la configuración");
+      console.error(
+        "OPTIONS > Error al guardar los cambios en la configuración"
+      );
   };
 
   if (cargando) return <ActivityIndicator style={{ marginTop: 50 }} />;
 
   return (
     <View style={{ backgroundColor: theme.colors.background, flex: 1 }}>
-      <StatusBar style="auto" backgroundColor={theme.colors.background} translucent={false} />
+      <StatusBar
+        style="auto"
+        backgroundColor={theme.colors.background}
+        translucent={false}
+      />
       <Appbar.Header>
         <Appbar.BackAction
           onPress={async () => {

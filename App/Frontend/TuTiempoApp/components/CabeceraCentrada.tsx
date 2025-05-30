@@ -8,8 +8,7 @@ const CabeceraCentrada = ({ title, style, variant }: any) => (
   <Appbar.Content
     title={
       <Text style={style} variant={variant}>
-        {" "}
-        {title}{" "}
+        {title}
       </Text>
     }
     style={{ alignItems: "center" }}

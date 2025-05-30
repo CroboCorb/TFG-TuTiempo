@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, FlatList, Dimensions } from "react-native";
+import { View, FlatList, Dimensions, Platform } from "react-native";
 import { useTheme, Appbar, Snackbar } from "react-native-paper";
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
@@ -19,6 +18,7 @@ import {
   actualizarListadoCiudades,
   cargarConfiguracion,
   cargarListadoCiudades,
+  guardarConfiguracion,
 } from "@/functions/GestorAsyncStorage";
 
 const CONN_ERROR =
@@ -26,7 +26,8 @@ const CONN_ERROR =
 const LOCATION_ERROR =
   "Hubo un error al procesar su ubicación. Añada su ciudad manualmente.";
 
-// FUNCIÓN PRINCIPAL DEL PROGRAMA
+const ANCHO_PANTALLA = Dimensions.get("window").width;
+
 export default function PantallaTiempo() {
   const theme = useTheme();
 
@@ -81,8 +82,9 @@ export default function PantallaTiempo() {
         await cargarConfig();
         const ciudades = await cargarCiudades();
 
-        if (ciudades) await obtenerPrevision(ciudades);
-        else if (!ciudades) await obtenerPrevision(listadoCiudades);
+        if (!ciudades) await obtenerUbicacionInicial();
+
+        setEstadoCarga(false);
       } catch (e) {
         console.error("Error durante la inicialización:", e);
       }
@@ -91,7 +93,7 @@ export default function PantallaTiempo() {
     if (cargando) inicializar();
   }, [cargando]);
 
-  // Recarga al enfocar
+  // Actualizar al enfocar
   useFocusEffect(
     useCallback(() => {
       if (esPrimeraCarga.current) {
@@ -100,13 +102,21 @@ export default function PantallaTiempo() {
       }
 
       cargarConfig();
-      cargarCiudades();
     }, [])
   );
 
-  /** Método encargado de obtener la previsión del
-   * tiempo según la ubicación actual del usuario. */
-  const obtenerPrevision = async (ciudades: Ciudad[]) => {
+  /**
+   * Método encargado de obtener la previsión del
+   * tiempo según la ubicación actual del usuario.
+   */
+  const obtenerUbicacionInicial = async () => {
+    const inicializacionConfig = await guardarConfiguracion(
+      JSON.stringify(configuracion)
+    );
+    if (inicializacionConfig)
+      console.log("INDEX > Configuración inicializada.");
+    else console.error("INDEX > Error de inicialización de configuración.");
+
     let resultado;
     const ubicacionActual = await UbicacionActual();
 
@@ -125,14 +135,10 @@ export default function PantallaTiempo() {
         meteorologia: resultado.data,
       };
 
-      const valorRetorno = await actualizarListadoCiudades(
-        listadoCiudades,
-        nuevaCiudad,
-        false
-      );
+      const valorRetorno = await actualizarListadoCiudades(nuevaCiudad);
       if (valorRetorno) {
         setListadoCiudades(valorRetorno);
-        console.log("INDEX > Listado de ciudades actualizado correctamente.");
+        console.log("INDEX > Listado de ciudades inicializado correctamente.");
       } else
         console.error("INDEX > Error al actualizar el listado de ciudades.");
     } else if (!resultado || (resultado && resultado.status !== 200)) {
@@ -142,8 +148,25 @@ export default function PantallaTiempo() {
       else if (resultado && resultado.status !== 200)
         setSnackbarErrorTXT(LOCATION_ERROR);
     }
+  };
 
-    setEstadoCarga(false);
+  // CONTROL DE REFRESCO AL ACTUALIZAR VALORES INTERNOS DE FLATLIST
+  const [valorControlRefresco, setValorControlRefresco] = useState<number>();
+  const manejarActualizacionCiudad = (index: number) => {
+    const recargaCiudades = async () => {
+      const ciudades = await cargarListadoCiudades();
+      if (ciudades !== null) {
+        setListadoCiudades(JSON.parse(ciudades));
+        setValorControlRefresco(Date.now());
+        console.log(
+          "INDEX > Datos de ciudad en índice",
+          index,
+          "actualizados."
+        );
+      }
+    };
+
+    recargaCiudades();
   };
 
   // =====================================
@@ -160,16 +183,19 @@ export default function PantallaTiempo() {
 
       <FlatList
         data={listadoCiudades}
+        extraData={valorControlRefresco}
         horizontal
         pagingEnabled
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item) => item.nombre}
-        renderItem={({ item }) => (
-          <View style={{ width: Dimensions.get("window").width }}>
+        renderItem={({ item, index }) => (
+          <View style={{ width: ANCHO_PANTALLA }}>
             <PantallaCiudad
               infoMeteorologia={item.meteorologia}
               configuracion={configuracion}
+              esPorUbicacion={item.usaUbicacion}
+              onUpdate={() => manejarActualizacionCiudad(index)}
             />
           </View>
         )}
@@ -185,7 +211,7 @@ export default function PantallaTiempo() {
       <Appbar.Header
         style={{
           backgroundColor: theme.colors.primary,
-          position: "fixed",
+          position: "absolute",
           marginTop: 0,
           marginBottom: -63,
           zIndex: 10,
@@ -212,7 +238,7 @@ export default function PantallaTiempo() {
       <View style={{ backgroundColor: theme.colors.background }} />
       <Snackbar
         visible={snackbarError}
-        onDismiss={() => {
+        onDismiss={async () => {
           setSnackbarError(false);
         }}
       >

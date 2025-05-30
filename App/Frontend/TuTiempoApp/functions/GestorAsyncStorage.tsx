@@ -54,17 +54,21 @@ export async function cargarListadoCiudades(): Promise<string | null> {
  * Actualiza el listado de ciudades (listadoOriginal) para agregar la nueva ciudad
  * (o actualizar sus datos), comparando cadenas normalizadas, comprobando existencia
  * y coincidencia de ciudades, alternando valores de "usaUbicacion" y reordenándolo.
- * @param listadoOriginal Listado original de ciudades.
  * @param nuevaCiudad Nueva ciudad a añadir o actualizar en el listado.
  * @param usaUbicacion Determina si los datos se obtuvieron por geolocalización.
  * @returns Listado de ciudades modificado con la nueva ciudad, nulo en caso de error.
  */
-export async function actualizarListadoCiudades(listadoOriginal: Ciudad[], nuevaCiudad: Ciudad, usaUbicacion: boolean): Promise<Ciudad[] | null> {
+export async function actualizarListadoCiudades(
+  nuevaCiudad: Ciudad,
+): Promise<Ciudad[] | null> {
   try {
+    let listadoSinParseo = await cargarListadoCiudades();
+    const listadoOriginal: Ciudad[] =
+      listadoSinParseo !== null ? JSON.parse(listadoSinParseo) : [];
+
     const existe = listadoOriginal.some(
       (ciudad) =>
-        normalizarTexto(ciudad.nombre) ===
-        normalizarTexto(nuevaCiudad.nombre)
+        normalizarTexto(ciudad.nombre) === normalizarTexto(nuevaCiudad.nombre)
     );
 
     let nuevoListado: Ciudad[] = [];
@@ -87,19 +91,18 @@ export async function actualizarListadoCiudades(listadoOriginal: Ciudad[], nueva
       });
     } else {
       nuevoListado = listadoOriginal.map((ciudad) =>
-        nuevaCiudad.usaUbicacion
-          ? { ...ciudad, usaUbicacion: false }
-          : ciudad
+        nuevaCiudad.usaUbicacion ? { ...ciudad, usaUbicacion: false } : ciudad
       );
       nuevoListado.push(nuevaCiudad);
     }
 
     await AsyncStorage.setItem(CIUDADES, JSON.stringify(nuevoListado));
+    return nuevoListado;
 
-    return nuevoListado.sort(
-      (a, b) => (b.usaUbicacion ? 1 : 0) - (a.usaUbicacion ? 1 : 0)
-    );
+    // nuevoListado.sort(
+    //   (a, b) => (b.usaUbicacion ? 1 : 0) - (a.usaUbicacion ? 1 : 0)
+    // );
   } catch (error) {
-    return null
+    return null;
   }
 }

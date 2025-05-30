@@ -121,12 +121,16 @@ export default function Ciudades() {
           meteorologia: resultadoMeteo.data,
         };
 
-        const resultado = await actualizarListadoCiudades(listadoCiudades, nuevaCiudad, false);
+        const resultado = await actualizarListadoCiudades(nuevaCiudad, false);
         if (resultado) {
           setListadoCiudades(resultado);
-          console.log("CIUDADES > Listado de ciudades actualizado correctamente.");
+          console.log(
+            "CIUDADES > Listado de ciudades actualizado correctamente."
+          );
         } else
-          console.error("CIUDADES > Error al actualizar el listado de ciudades.");
+          console.error(
+            "CIUDADES > Error al actualizar el listado de ciudades."
+          );
       } else {
         setSnackbarTexto("Error de comunicación. Inténtelo más tarde.");
         setSnackbarVisibilidad(true);
@@ -218,9 +222,8 @@ export default function Ciudades() {
 
         {/* UBICACIONES GUARDADAS */}
         {listadoCiudades.map((ciudad, index) => (
-          <View>
+          <View key={index}>
             <Card
-              key={index}
               style={{ marginTop: 15 }}
               onLongPress={async () =>
                 eliminarCiudad(ciudad.nombre, ciudad.usaUbicacion)
