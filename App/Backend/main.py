@@ -2,7 +2,7 @@ from fastapi import Body, FastAPI, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from typing import Annotated
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
 
 from pydantic import UUID4
 from sqlalchemy import create_engine, select
@@ -20,9 +20,8 @@ import modelsDB
 import modelsBase
 
 # VALORES CONSTANTES
-SECRET_KEY = os.getenv("SECRET_KEY", "mysecret")
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 ALGORITHM = "HS256"
-
 
 # CARGA DE ARCHIVO JSON CON ÍCONOS DE TIEMPO
 with open("refs/IconosTiempo.json", "r", encoding="utf-8") as f:
@@ -77,7 +76,7 @@ create_tables()
 async def crearTokenJWT(user_id: UUID4):
     expire = datetime.now() + timedelta(weeks=2)
     payload = {"sub": str(user_id), "exp": expire}
-    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    token = jwt.encode(payload, ENCRYPTION_KEY, algorithm=ALGORITHM)
     return token, expire
 
 async def verificarTokenJWT(req: Request, db: db_dependency):
