@@ -97,11 +97,9 @@ export async function actualizarListadoCiudades(
     }
 
     await AsyncStorage.setItem(CIUDADES, JSON.stringify(nuevoListado));
-    return nuevoListado;
-
-    // nuevoListado.sort(
-    //   (a, b) => (b.usaUbicacion ? 1 : 0) - (a.usaUbicacion ? 1 : 0)
-    // );
+    return nuevoListado.sort(
+      (a, b) => (b.usaUbicacion ? 1 : 0) - (a.usaUbicacion ? 1 : 0)
+    );
   } catch (error) {
     return null;
   }

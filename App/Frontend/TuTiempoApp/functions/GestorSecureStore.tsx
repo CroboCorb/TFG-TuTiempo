@@ -33,3 +33,14 @@ export async function guardarToken(tokenAGuardar: string): Promise<boolean> {
   if (token) return true;
   else return false;
 }
+
+/**
+ * Elimina el token del usuario de SecureStore
+ * @returns Verdadero si el token no existe tras la eliminación, falso en caso contrario.
+ */
+export async function eliminarToken() {
+  await SecureStore.deleteItemAsync(TOKEN);
+  const token = await cargarToken();
+  if (!token) console.info('SecureStore > Token eliminado correctamente.');
+  else console.error('SecureStore > Token del usuario no eliminado correctamente.');
+}

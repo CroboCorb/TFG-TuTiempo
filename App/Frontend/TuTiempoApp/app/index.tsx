@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, FlatList, Dimensions, Platform } from "react-native";
+import { View, FlatList, Dimensions } from "react-native";
 import { useTheme, Appbar, Snackbar } from "react-native-paper";
 
 import { router, useFocusEffect } from "expo-router";
@@ -14,12 +14,7 @@ import { UbicacionActual } from "@/functions/GestorUbicacion";
 
 import { Configuracion } from "@/types/Configuracion";
 import { Ciudad } from "@/types/ListadoCiudades";
-import {
-  actualizarListadoCiudades,
-  cargarConfiguracion,
-  cargarListadoCiudades,
-  guardarConfiguracion,
-} from "@/functions/GestorAsyncStorage";
+import * as GestorAsyncStorage from "@/functions/GestorAsyncStorage";
 
 const CONN_ERROR =
   "Hubo un error en la conexión. Inténtelo de nuevo más tarde.";
@@ -35,7 +30,7 @@ export default function PantallaTiempo() {
   const [configuracion, setConfiguracion] = useState<Configuracion>({
     unidadTemperatura: "celsius",
     unidadMedidaViento: "kmh",
-    unidadMedidaPresion: "mb",
+    unidadMedidaPresion: "hPa",
   });
 
   const esPrimeraCarga = useRef(true);
@@ -49,10 +44,10 @@ export default function PantallaTiempo() {
   /** Método de carga de configuracion */
   const cargarConfig = async () => {
     try {
-      const config = await cargarConfiguracion();
+      const config = await GestorAsyncStorage.cargarConfiguracion();
       if (config) {
         setConfiguracion(JSON.parse(config));
-        console.log("INDEX > Configuración cargada correctamente.");
+        console.info("INDEX > Configuración cargada correctamente.");
       }
     } catch (e) {
       console.error("OPTIONS > Error al cargar la configuración:", e);
@@ -62,11 +57,11 @@ export default function PantallaTiempo() {
   /** Método de carga de ciudades */
   const cargarCiudades = async () => {
     try {
-      const ciudades = await cargarListadoCiudades();
+      const ciudades = await GestorAsyncStorage.cargarListadoCiudades();
       if (ciudades) {
         const ciudadesParseadas: Ciudad[] = JSON.parse(ciudades);
         setListadoCiudades(ciudadesParseadas);
-        console.log("INDEX > Ciudades cargadas correctamente.");
+        console.info("INDEX > Ciudades cargadas correctamente.");
 
         return ciudadesParseadas;
       }
@@ -102,6 +97,7 @@ export default function PantallaTiempo() {
       }
 
       cargarConfig();
+      cargarCiudades();
     }, [])
   );
 
@@ -110,7 +106,7 @@ export default function PantallaTiempo() {
    * tiempo según la ubicación actual del usuario.
    */
   const obtenerUbicacionInicial = async () => {
-    const inicializacionConfig = await guardarConfiguracion(
+    const inicializacionConfig = await GestorAsyncStorage.guardarConfiguracion(
       JSON.stringify(configuracion)
     );
     if (inicializacionConfig)
@@ -135,7 +131,9 @@ export default function PantallaTiempo() {
         meteorologia: resultado.data,
       };
 
-      const valorRetorno = await actualizarListadoCiudades(nuevaCiudad);
+      const valorRetorno = await GestorAsyncStorage.actualizarListadoCiudades(
+        nuevaCiudad
+      );
       if (valorRetorno) {
         setListadoCiudades(valorRetorno);
         console.log("INDEX > Listado de ciudades inicializado correctamente.");
@@ -154,11 +152,11 @@ export default function PantallaTiempo() {
   const [valorControlRefresco, setValorControlRefresco] = useState<number>();
   const manejarActualizacionCiudad = (index: number) => {
     const recargaCiudades = async () => {
-      const ciudades = await cargarListadoCiudades();
+      const ciudades = await GestorAsyncStorage.cargarListadoCiudades();
       if (ciudades !== null) {
         setListadoCiudades(JSON.parse(ciudades));
         setValorControlRefresco(Date.now());
-        console.log(
+        console.info(
           "INDEX > Datos de ciudad en índice",
           index,
           "actualizados."

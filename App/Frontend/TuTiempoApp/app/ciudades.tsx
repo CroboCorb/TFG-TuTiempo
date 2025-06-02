@@ -30,7 +30,7 @@ import {
 } from "@/functions/GestorAsyncStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const CIUDADES = "@usrCities";
+const CIUDADES = "user_cities";
 const indexCiudades = indexarCiudades();
 
 export default function Ciudades() {
@@ -47,7 +47,7 @@ export default function Ciudades() {
   const cargarPreferencias = async () => {
     const preferencias = await cargarConfiguracion();
     if (preferencias) {
-      console.log("CIUDADES > Configuración cargada correctamente.");
+      console.info("CIUDADES > Configuración cargada correctamente.");
       setConfiguracion(JSON.parse(preferencias));
     } else console.error("CIUDADES > Error al cargar la configuración");
   };
@@ -63,7 +63,7 @@ export default function Ciudades() {
         );
 
         setListadoCiudades(ciudadesOrdenadas);
-        console.log("CIUDADES > Ciudades cargadas correctamente.");
+        console.info("CIUDADES > Ciudades cargadas correctamente.");
       } else
         console.error("CIUDADES > Error al cargar el listado de ciudades.");
     };
@@ -124,7 +124,7 @@ export default function Ciudades() {
         const resultado = await actualizarListadoCiudades(nuevaCiudad, false);
         if (resultado) {
           setListadoCiudades(resultado);
-          console.log(
+          console.info(
             "CIUDADES > Listado de ciudades actualizado correctamente."
           );
         } else
@@ -155,6 +155,7 @@ export default function Ciudades() {
         setListadoCiudades(nuevasCiudades);
         await AsyncStorage.setItem(CIUDADES, JSON.stringify(nuevasCiudades));
 
+        console.info('CIUDADES > Ciudad eliminada correctamente.')
         setSnackbarTexto("Ciudad eliminada correctamente.");
         setSnackbarVisibilidad(true);
       } catch (error) {

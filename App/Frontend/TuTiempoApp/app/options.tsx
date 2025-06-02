@@ -1,49 +1,57 @@
-import { useCallback, useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Linking, ScrollView, View } from "react-native";
 import {
   ActivityIndicator,
   Appbar,
   Divider,
   Text,
   List,
-  RadioButton,
   useTheme,
   TouchableRipple,
   Snackbar,
 } from "react-native-paper";
-import Animated, { FadeIn } from "react-native-reanimated";
+import { Dropdown } from "react-native-paper-dropdown";
 
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 
 import {
   cargarConfiguracion,
   guardarConfiguracion,
 } from "@/functions/GestorAsyncStorage";
-import { StatusBar } from "expo-status-bar";
 
 const SNACKBAR_DURACION = 2500;
 
+const MEDIDAS_TEMPERATURA = [
+  { label: "Celsius (°C)", value: "celsius" },
+  { label: "Fahrenheit (°F)", value: "fahrenheit" },
+];
+const MEDIDAS_VIENTO = [
+  { label: "Escala Beaufort", value: "beaufort" },
+  { label: "Kilómetros por hora (km/h)", value: "kmh" },
+  { label: "Metros por segundo (m/s)", value: "ms" },
+  { label: "Millas por hora (mph)", value: "mph" },
+  { label: "Nudos (kn)", value: "kn" },
+];
+const MEDIDAS_PRESION = [
+  { label: "Hectopascal (hPa)", value: "hPa" },
+  { label: "Milibares (mbar)", value: "mbar" },
+  { label: "Milímetro de mercurio (mmHg)", value: "mmHg" },
+  { label: "Pulgada de mercurio (inHg)", value: "inHg" },
+  { label: "Atmósfera estándar (atm)", value: "atm" },
+];
+
 export default function Options() {
   const theme = useTheme();
-
-  const [visibilidadSnackbarMenuSecreto, setVisibilidadSnackbarMenuSecreto] =
-    useState(false);
-  const cerrarSnackbarMenuSecreto = async () =>
-    setVisibilidadSnackbarMenuSecreto(false);
 
   const [visibilidadSnackbarInformacion, setVisibilidadSnackbarInformacion] =
     useState(false);
   const cerrarSnackbarInformacion = async () =>
     setVisibilidadSnackbarInformacion(false);
 
-  const [valorLogin, setValorLogin] = useState(0);
-  useEffect(() => {
-    if (valorLogin === 5) setVisibilidadSnackbarMenuSecreto(true);
-  }, [valorLogin]);
-
-  const [unidadTemperatura, setUnidadTemperatura] = useState("celsius");
-  const [unidadMedidaViento, setUnidadMedidaViento] = useState("kmh");
-  const [unidadMedidaPresion, setUnidadMedidaPresion] = useState("mb");
+  const [unidadTemperatura, setUnidadTemperatura] = useState<string>();
+  const [unidadMedidaViento, setUnidadMedidaViento] = useState<string>();
+  const [unidadMedidaPresion, setUnidadMedidaPresion] = useState<string>();
 
   const [cargando, setEstadoCarga] = useState(true);
 
@@ -55,10 +63,15 @@ export default function Options() {
         const valores = JSON.parse(configuracion);
         setUnidadTemperatura(valores.unidadTemperatura || "celsius");
         setUnidadMedidaViento(valores.unidadMedidaViento || "kmh");
-        setUnidadMedidaPresion(valores.unidadMedidaPresion || "mb");
+        setUnidadMedidaPresion(valores.unidadMedidaPresion || "hPa");
 
-        console.log("OPTIONS > Configuración cargada correctamente.");
-      } else console.warn("OPTIONS > No existe configuración en memoria.");
+        console.info("OPTIONS > Configuración cargada correctamente.");
+      } else {
+        console.warn("OPTIONS > No existe configuración en memoria.");
+        setUnidadTemperatura("celsius");
+        setUnidadMedidaViento("kmh");
+        setUnidadMedidaPresion("hPa");
+      }
 
       setEstadoCarga(false);
     };
@@ -80,7 +93,7 @@ export default function Options() {
     );
 
     if (configGuardada)
-      console.log("OPTIONS > Configuración guardada correctamente.");
+      console.info("OPTIONS > Configuración guardada correctamente.");
     else
       console.error(
         "OPTIONS > Error al guardar los cambios en la configuración"
@@ -103,130 +116,92 @@ export default function Options() {
           }}
         />
         <Appbar.Content title="Configuración" />
-        {valorLogin >= 5 ? (
-          <Animated.View entering={FadeIn.duration(100)}>
-            <Appbar.Action
-              icon="shield-crown"
-              onPress={async () => router.navigate("/admin/login")}
-            />
-          </Animated.View>
-        ) : (
-          <View />
-        )}
       </Appbar.Header>
 
       <Divider />
 
       <ScrollView style={{ flex: 1, padding: 16 }}>
-        {/* Control de unidad de temperatura */}
+        {/* Control de unidades de medida */}
         <List.Section>
           <List.Subheader
             style={{ fontWeight: "bold", textTransform: "uppercase" }}
           >
-            Unidad de temperatura
+            Unidades de medida
           </List.Subheader>
-          <RadioButton.Group
-            value={unidadTemperatura}
-            onValueChange={(value) => {
-              setUnidadTemperatura(value);
-              guardado({ unidadTemperatura: value });
-            }}
-          >
-            <RadioButton.Item label="Celsius (°C)" value="celsius" />
-            <RadioButton.Item label="Fahrenheit (°F)" value="fahrenheit" />
-          </RadioButton.Group>
+
+          {/* Control de unidad de temperatura */}
+          <View style={{ paddingStart: 16, paddingEnd: 16 }}>
+            <Dropdown
+              label={"Unidad de temperatura"}
+              options={MEDIDAS_TEMPERATURA}
+              value={unidadTemperatura}
+              onSelect={async (value) => {
+                setUnidadTemperatura(value);
+                guardado({ unidadTemperatura: value });
+              }}
+              mode={"outlined"}
+              hideMenuHeader
+            />
+          </View>
+
+          {/* Control de unidad de viento */}
+          <View style={{ marginTop: 16, paddingStart: 16, paddingEnd: 16 }}>
+            <Dropdown
+              label={"Unidad de viento"}
+              options={MEDIDAS_VIENTO}
+              value={unidadMedidaViento}
+              onSelect={async (value) => {
+                setUnidadMedidaViento(value);
+                guardado({ unidadMedidaViento: value });
+              }}
+              mode={"outlined"}
+              hideMenuHeader
+            />
+          </View>
+
+          {/* Control de unidad de presión atmosférica */}
+          <View style={{ marginTop: 16, paddingStart: 16, paddingEnd: 16 }}>
+            <Dropdown
+              label={"Unidad de presión atmosférica"}
+              options={MEDIDAS_PRESION}
+              value={unidadMedidaPresion}
+              onSelect={async (value) => {
+                setUnidadMedidaPresion(value);
+                guardado({ unidadMedidaPresion: value });
+              }}
+              mode={"outlined"}
+              hideMenuHeader
+            />
+          </View>
         </List.Section>
 
-        <Divider />
-
-        {/* Control de unidad de viento */}
-        <List.Section>
-          <List.Subheader
-            style={{ fontWeight: "bold", textTransform: "uppercase" }}
-          >
-            Unidad de velocidad del viento
-          </List.Subheader>
-          <RadioButton.Group
-            value={unidadMedidaViento}
-            onValueChange={(value) => {
-              setUnidadMedidaViento(value);
-              guardado({ unidadMedidaViento: value });
-            }}
-          >
-            <RadioButton.Item label="Kilómetros por hora (km/h)" value="kmh" />
-            <RadioButton.Item label="Millas por hora (mph)" value="mph" />
-          </RadioButton.Group>
-        </List.Section>
-
-        <Divider />
-
-        {/* Control de unidad de presión atmosférica */}
-        <List.Section>
-          <List.Subheader
-            style={{ fontWeight: "bold", textTransform: "uppercase" }}
-          >
-            Unidad de presión atmosférica
-          </List.Subheader>
-          <RadioButton.Group
-            value={unidadMedidaPresion}
-            onValueChange={(value) => {
-              setUnidadMedidaPresion(value);
-              guardado({ unidadMedidaPresion: value });
-            }}
-          >
-            <RadioButton.Item label="Milibares (mb)" value="mb" />
-            <RadioButton.Item label="Pulgadas (in)" value="in" />
-          </RadioButton.Group>
-        </List.Section>
-
-        <Divider />
+        <Divider style={{ marginTop: 16, marginStart: 16, marginEnd: 16 }} />
 
         {/* Apartado secundario */}
         <List.Section>
           <List.Subheader
             style={{ fontWeight: "bold", textTransform: "uppercase" }}
           >
-            Otros
+            Acerca de
           </List.Subheader>
 
           <TouchableRipple
             style={{ padding: 15 }}
             onPress={async () => {
-              if (!visibilidadSnackbarInformacion)
-                setVisibilidadSnackbarInformacion(true);
+              Linking.openURL("https://github.com/CroboCorb/TFG-TuTiempo");
             }}
           >
-            <Text variant="bodyLarge">Información</Text>
+            <Text variant="bodyLarge">Repositorio</Text>
           </TouchableRipple>
 
           <TouchableRipple
             style={{ padding: 15 }}
-            onPress={async () => setValorLogin(valorLogin + 1)}
+            onPress={async () => router.navigate("/admin/login")}
           >
-            <Text variant="bodyLarge">Menú de testeo</Text>
+            <Text variant="bodyLarge">Administración</Text>
           </TouchableRipple>
         </List.Section>
       </ScrollView>
-
-      {/* SNACKBARS */}
-      <Snackbar
-        duration={SNACKBAR_DURACION}
-        visible={visibilidadSnackbarInformacion}
-        onDismiss={cerrarSnackbarInformacion}
-      >
-        <Text style={{ textAlign: "center", color: theme.colors.surface }}>
-          Daniel Brugués Severyn - CFGS 2º DAM
-        </Text>
-      </Snackbar>
-      <Snackbar
-        duration={SNACKBAR_DURACION}
-        visible={visibilidadSnackbarMenuSecreto}
-        onDismiss={cerrarSnackbarMenuSecreto}
-      >
-        <Text style={{ textAlign: "center", color: theme.colors.surface }}>
-          ¡Menú de administración activado!
-        </Text>
-      </Snackbar>
     </View>
   );
 }

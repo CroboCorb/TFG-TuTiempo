@@ -9,6 +9,7 @@ import {
   Appbar,
   TextInput,
   HelperText,
+  Menu,
 } from "react-native-paper";
 import JSONTree from "react-native-json-tree";
 
@@ -23,8 +24,9 @@ import {
   listadoTokens_API,
   registrarUsuario_API,
 } from "@/functions/GestorAPI";
-import { cargarToken } from "@/functions/GestorSecureStore";
+import { cargarToken, eliminarToken } from "@/functions/GestorSecureStore";
 import encriptarTexto from "@/functions/Utilidades";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function Testing() {
   const theme = useTheme();
@@ -49,15 +51,20 @@ export default function Testing() {
   const [listadoCredenciales, setListadoCredenciales] = useState(emptyJSON);
   const obtenerCredenciales = async () => {
     const respuesta: any = await listadoCredenciales_API(token);
-    if (respuesta && respuesta.status === 200)
+    if (respuesta && respuesta.status === 200) {
       setListadoCredenciales(respuesta);
+      console.info('TESTING > Credenciales obtenidas correctamente.');
+    } else console.warn('TESTING > Error al obtener las credenciales.');
   };
 
   // Variable y método de obtención del listado de tokens
   const [listadoTokens, setListadoTokens] = useState(emptyJSON);
   const obtenerTokens = async () => {
     const respuesta: any = await listadoTokens_API(token);
-    if (respuesta && respuesta.status === 200) setListadoTokens(respuesta);
+    if (respuesta && respuesta.status === 200) {
+      setListadoTokens(respuesta);
+      console.info('TESTING > Tokens obtenidos correctamente.');
+    } else console.warn('TESTING > Error al obtener los tokens.');
   };
 
   // Variables de control para el registro
@@ -84,7 +91,7 @@ export default function Testing() {
       setResultadoRegistro(respuesta);
       setUsuario("");
       setContrasena("");
-    };
+    }
   };
 
   // Variables de control para la búsqueda de ciudades
@@ -117,6 +124,12 @@ export default function Testing() {
     if (respuesta && respuesta.status === 200) setInfoMeteorologica(respuesta);
   };
 
+  const [visible, setVisible] = useState(false);
+  const closeMenu = () => setVisible(false);
+
+  /**
+   * 
+   */
   const limpiarJSON = async () => {
     setListadoCredenciales(emptyJSON);
     setListadoTokens(emptyJSON);
@@ -127,6 +140,8 @@ export default function Testing() {
 
     setCiudadConsulta("");
     setInfoMeteorologica(emptyJSON);
+
+    console.info("TESTING > Pantalla limpiada.");
   };
 
   return (
@@ -136,7 +151,7 @@ export default function Testing() {
       }}
     >
       <StatusBar
-        style="light"
+        style="auto"
         backgroundColor={theme.colors.background}
         translucent={false}
       />
@@ -147,12 +162,34 @@ export default function Testing() {
           }}
         />
         <Appbar.Content title="Zona de pruebas de API" />
-        <Appbar.Action
-          icon="broom"
-          onPress={async () => {
-            limpiarJSON();
-          }}
-        />
+
+        <Menu
+          visible={visible}
+          onDismiss={closeMenu}
+          anchor={
+            <MaterialCommunityIcons
+              name="dots-vertical"
+              size={24}
+              style={{ marginRight: 4 }}
+              onPress={async () => {
+                setVisible(true);
+              }}
+              color={theme.colors.primary}
+            />
+          }
+        >
+          <Menu.Item
+            onPress={async () => {
+              limpiarJSON();
+              setVisible(false);
+            }}
+            title="Limpiar JSONs"
+          />
+          <Menu.Item onPress={async () => {
+            await eliminarToken();
+            router.replace('/admin/login');
+          }} title="Cerrar sesión" />
+        </Menu>
       </Appbar.Header>
 
       <Divider style={{ margin: 15 }} />

@@ -15,7 +15,7 @@ import { StatusBar } from "expo-status-bar";
 import { cargarToken, guardarToken } from "@/functions/GestorSecureStore";
 import { router } from "expo-router";
 import { iniciarSesion_API } from "@/functions/GestorAPI";
-import encriptarTexto from "@/functions/Utilidades";
+import { encriptarTexto } from "@/functions/Utilidades";
 
 export default function Login() {
   const theme = useTheme();
@@ -29,17 +29,33 @@ export default function Login() {
   const usuarioInvalido = () => usuario.trim().length < 4;
   const contrasenaInvalida = () => contrasena.trim().length < 4;
 
+  /**
+   * Método encargado de 
+   * @param usuario 
+   * @param contrasena 
+   */
   const gestionLogueo = async (usuario: string, contrasena: string) => {
     setCargaInicioSesion(true);
     setError(null);
     try {
-      const respuesta = await iniciarSesion_API(usuario, await encriptarTexto(contrasena));
+      const respuesta = await iniciarSesion_API(usuario, contrasena);
       if (respuesta) {
         if (respuesta.status === 200) {
-          await guardarToken(respuesta.data);
+          console.info('LOGIN > Inicio de sesión correcto con credenciales:',usuario, contrasena)
+
+          const estadoGuardado = await guardarToken(respuesta.data);
+          if (estadoGuardado) console.info('LOGIN > Token guardado correctamente.');
+          else console.error('LOGIN > Error al guardar el token de sesión.')
+
           router.replace("/admin/testing");
-        } else setError("Inicio de sesión incorrecto.");
-      } else setError("Error de conexión.");
+        } else {
+          setError("Inicio de sesión incorrecto.");
+          console.warn('LOGIN > Inicio de sesión incorrecto.')
+        };
+      } else {
+        setError("Error de conexión.");
+        console.error('LOGIN > Error de conexión.');
+      }
     } catch (e) {
       setError("Ocurrió un error inesperado.");
     } finally {
@@ -50,8 +66,14 @@ export default function Login() {
   useEffect(() => {
     const recogerToken = async () => {
       const tokenGuardado = await cargarToken();
-      if (tokenGuardado) router.replace("/admin/testing");
-      else setEstadoCarga(false);
+      if (tokenGuardado) {
+        console.info('LOGIN > Token verificado correctamente.')
+        router.replace("/admin/testing");
+      }
+      else {
+        console.warn('LOGIN > Token inválido o vacío.');
+        setEstadoCarga(false);
+      }
     };
 
     recogerToken();
@@ -139,7 +161,7 @@ export default function Login() {
             <Button
               icon="login"
               mode="contained"
-              onPress={async () => gestionLogueo(usuario, contrasena)}
+              onPress={async () => gestionLogueo(usuario, await encriptarTexto(contrasena))}
               loading={cargaInicioSesion}
               disabled={
                 usuarioInvalido() || contrasenaInvalida() || cargaInicioSesion

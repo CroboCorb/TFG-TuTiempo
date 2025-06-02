@@ -23,17 +23,19 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 
+import { router } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { Configuracion } from "@/types/Configuracion";
 import { InfoMeteorologia } from "@/types/InfoMeteorologia";
-import CabeceraCentrada from "./CabeceraCentrada";
-import { router } from "expo-router";
-import ModalAlerta from "./ModalAlerta";
-import { UbicacionActual } from "@/functions/GestorUbicacion";
-import { infoSegunCardinalidad_API, infoSegunNombre_API } from "@/functions/GestorAPI";
-import { actualizarListadoCiudades } from "@/functions/GestorAsyncStorage";
 import { Ciudad } from "@/types/ListadoCiudades";
+
+import { UbicacionActual } from "@/functions/GestorUbicacion";
+import { actualizarListadoCiudades } from "@/functions/GestorAsyncStorage";
+import { infoSegunCardinalidad_API, infoSegunNombre_API } from "@/functions/GestorAPI";
+
+import CabeceraCentrada from "./CabeceraCentrada";
+import ModalAlerta from "./ModalAlerta";
 
 export default function PantallaCiudad({
   infoMeteorologia,

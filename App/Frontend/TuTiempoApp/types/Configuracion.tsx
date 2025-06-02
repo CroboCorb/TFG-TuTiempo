@@ -1,5 +1,5 @@
 export type Configuracion = {
-    unidadTemperatura: "celsius",
-    unidadMedidaViento: "kmh",
-    unidadMedidaPresion: "mb",
+    unidadTemperatura: string,
+    unidadMedidaViento: string,
+    unidadMedidaPresion: string,
 }
