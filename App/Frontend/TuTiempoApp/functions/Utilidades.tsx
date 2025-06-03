@@ -34,19 +34,21 @@ export async function convertirMedidaViento(
   tipoMedida: string,
   valorEnKmh: string
 ): Promise<string> {
+  const valor = parseFloat(valorEnKmh);
   switch (tipoMedida) {
     case "beaufort":
-      return (await calcularEscalaBeaufort(parseFloat(valorEnKmh))).toString();
+      const beaufort = await calcularEscalaBeaufort(valor);
+      return `${beaufort} bft`;
     case "kmh":
-      return valorEnKmh;
+      return `${valor.toFixed(1)} km/h`;
     case "mph":
-      return (parseFloat(valorEnKmh) * 0.621371).toFixed(2);
+      return `${(valor * 0.621371).toFixed(1)} mph`;
     case "ms":
-      return (parseFloat(valorEnKmh) / 3.6).toFixed(2);
+      return `${(valor / 3.6).toFixed(1)} m/s`;
     case "kn":
-      return (parseFloat(valorEnKmh) / 1.852).toFixed(2);
+      return `${(valor / 1.852).toFixed(1)} kn`;
     default:
-      return "";
+      return `${valor.toFixed(1)} km/h`;
   }
 }
 
@@ -85,13 +87,16 @@ export async function convertirMedidaPresion(
   tipoMedida: string,
   valorEnMbar: string
 ): Promise<string> {
+  const valor = parseFloat(valorEnMbar);
   switch (tipoMedida) {
     case "hPa":
-      return valorEnMbar;
+      return `${valorEnMbar} hPa`;
     case "mmHg":
-      return (parseFloat(valorEnMbar) * 0.750062).toFixed(2);
+      return `${(valor * 0.750062).toFixed(2)} mmHg`;
+    case "inHg":
+      return `${(valor * 0.0393701).toFixed(2)} inHg`
     case "atm":
-      return (parseFloat(valorEnMbar) / 1013.25).toFixed(2);
+      return `${(valor / 1013.25).toFixed(2)} atm`;
     default:
       return "";
   }

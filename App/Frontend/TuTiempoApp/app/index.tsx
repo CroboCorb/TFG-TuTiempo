@@ -31,6 +31,7 @@ export default function PantallaTiempo() {
     unidadTemperatura: "celsius",
     unidadMedidaViento: "kmh",
     unidadMedidaPresion: "hPa",
+    notificacionesActivadas: false,
   });
 
   const esPrimeraCarga = useRef(true);

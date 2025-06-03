@@ -161,7 +161,7 @@ export default function Testing() {
             router.back();
           }}
         />
-        <Appbar.Content title="Zona de pruebas de API" />
+        <Appbar.Content title="Administración" />
 
         <Menu
           visible={visible}

@@ -36,6 +36,7 @@ import { infoSegunCardinalidad_API, infoSegunNombre_API } from "@/functions/Gest
 
 import CabeceraCentrada from "./CabeceraCentrada";
 import ModalAlerta from "./ModalAlerta";
+import { convertirMedidaPresion, convertirMedidaViento } from "@/functions/Utilidades";
 
 export default function PantallaCiudad({
   infoMeteorologia,
@@ -70,6 +71,7 @@ export default function PantallaCiudad({
     return () => clearInterval(interval);
   }, []);
 
+  // Constantes de control de visibilidad de modales de alerta
   const [datosModal, setDatosModal] = useState<InfoMeteorologia["alertas"]>();
   const [visibilidadModal, setVisibilidadModal] = useState<boolean>(false);
 
@@ -110,6 +112,19 @@ export default function PantallaCiudad({
 
     setEstadoRecarga(false);
   };
+
+  const [climaActualViento, setClimaActualViento] = useState<string>("");
+  const [climaActualPresion, setClimaActualPresion] = useState<string>("");
+  useEffect(() => {
+    const convertir = async () => {
+      if (!recarga) {
+        setClimaActualViento(await convertirMedidaViento(configuracion.unidadMedidaViento, infoMeteorologia.clima_actual.viento_kmh));
+        setClimaActualPresion(await convertirMedidaPresion(configuracion.unidadMedidaPresion, infoMeteorologia.clima_actual.presion_mb));
+      }
+    };
+
+    convertir();
+  }, [recarga, infoMeteorologia, configuracion])
 
   return (
     <View>
@@ -239,12 +254,7 @@ export default function PantallaCiudad({
                     color={theme.colors.primary}
                   />
                   <Text style={styles.txtValor}>
-                    {configuracion.unidadMedidaViento === "kmh"
-                      ? infoMeteorologia.clima_actual.viento_kmh
-                      : infoMeteorologia.clima_actual.viento_mph}{" "}
-                    {configuracion.unidadMedidaViento === "kmh"
-                      ? "km/h"
-                      : "mph"}
+                    {climaActualViento}
                   </Text>
                   <Text style={styles.txtResumen}>Viento</Text>
                 </View>
@@ -370,7 +380,7 @@ export default function PantallaCiudad({
             }}
           >
             {/* INFORMACION ASTRONÓMICA */}
-            <Card style={{ flex: 1 }}>
+            <Card style={{ flex: 1, flexDirection: 'column', justifyContent: 'center' }}>
               <Card.Title title="Astronomía" />
               <Card.Content>
                 <Text style={{ fontWeight: "bold" }}>
@@ -387,7 +397,7 @@ export default function PantallaCiudad({
             </Card>
 
             {/* INFORMACIÓN GENERAL */}
-            <Card style={{ flex: 1 }}>
+            <Card style={{ flex: 1, flexDirection: 'column', justifyContent: 'center' }}>
               <Card.Title title="General" />
               <Card.Content>
                 <Text style={{ fontWeight: "bold" }}>
@@ -399,15 +409,16 @@ export default function PantallaCiudad({
                 <Text style={{ fontWeight: "bold" }}>
                   Nieve:{" "}
                   <Text>
-                    {infoMeteorologia.pronostico_semanal[1].prob_nieve}%
+                    {infoMeteorologia.pronostico_semanal[0].prob_nieve}%
                   </Text>
                 </Text>
                 <Text style={{ fontWeight: "bold" }}>
                   Presión:{" "}
                   <Text>
-                    {configuracion.unidadMedidaPresion === "mb"
+                    {/* {configuracion.unidadMedidaPresion === "mb"
                       ? infoMeteorologia.clima_actual.presion_mb + " mb"
-                      : infoMeteorologia.clima_actual.presion_in + " in"}
+                      : infoMeteorologia.clima_actual.presion_in + " in"} */}
+                    {climaActualPresion}
                   </Text>
                 </Text>
                 <Text style={{ fontWeight: "bold" }}>

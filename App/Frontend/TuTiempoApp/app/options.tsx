@@ -9,6 +9,7 @@ import {
   useTheme,
   TouchableRipple,
   Snackbar,
+  Switch,
 } from "react-native-paper";
 import { Dropdown } from "react-native-paper-dropdown";
 
@@ -19,8 +20,6 @@ import {
   cargarConfiguracion,
   guardarConfiguracion,
 } from "@/functions/GestorAsyncStorage";
-
-const SNACKBAR_DURACION = 2500;
 
 const MEDIDAS_TEMPERATURA = [
   { label: "Celsius (°C)", value: "celsius" },
@@ -44,14 +43,10 @@ const MEDIDAS_PRESION = [
 export default function Options() {
   const theme = useTheme();
 
-  const [visibilidadSnackbarInformacion, setVisibilidadSnackbarInformacion] =
-    useState(false);
-  const cerrarSnackbarInformacion = async () =>
-    setVisibilidadSnackbarInformacion(false);
-
   const [unidadTemperatura, setUnidadTemperatura] = useState<string>();
   const [unidadMedidaViento, setUnidadMedidaViento] = useState<string>();
   const [unidadMedidaPresion, setUnidadMedidaPresion] = useState<string>();
+  const [notificacionesActivadas, setNotificacionesActivadas] = useState(false);
 
   const [cargando, setEstadoCarga] = useState(true);
 
@@ -64,6 +59,7 @@ export default function Options() {
         setUnidadTemperatura(valores.unidadTemperatura || "celsius");
         setUnidadMedidaViento(valores.unidadMedidaViento || "kmh");
         setUnidadMedidaPresion(valores.unidadMedidaPresion || "hPa");
+        setNotificacionesActivadas(valores.notificacionesActivadas || false);
 
         console.info("OPTIONS > Configuración cargada correctamente.");
       } else {
@@ -71,6 +67,7 @@ export default function Options() {
         setUnidadTemperatura("celsius");
         setUnidadMedidaViento("kmh");
         setUnidadMedidaPresion("hPa");
+        setNotificacionesActivadas(false);
       }
 
       setEstadoCarga(false);
@@ -85,6 +82,7 @@ export default function Options() {
       unidadTemperatura,
       unidadMedidaViento,
       unidadMedidaPresion,
+      notificacionesActivadas,
       ...nuevaConfiguracion,
     };
 
@@ -171,6 +169,45 @@ export default function Options() {
               }}
               mode={"outlined"}
               hideMenuHeader
+            />
+          </View>
+        </List.Section>
+
+        <Divider style={{ marginTop: 16, marginStart: 16, marginEnd: 16 }} />
+
+        {/* Gestión de otros ajustes */}
+        <List.Section>
+          <List.Subheader
+            style={{ fontWeight: "bold", textTransform: "uppercase" }}
+          >
+            Otros ajustes
+          </List.Subheader>
+
+          <View
+            style={{
+              display: "flex",
+              flexDirection: "row",
+              justifyContent: "space-between",
+              marginStart: 16,
+              marginEnd: 16,
+            }}
+          >
+            <View>
+              <Text variant="bodyLarge">Actualizar automáticamente</Text>
+              <Text
+                variant="bodyMedium"
+                style={{ color: theme.colors.outline }}
+              >
+                Actualizar las 08:00 y las 20:00
+              </Text>
+            </View>
+
+            <Switch
+              value={notificacionesActivadas}
+              onValueChange={async (value) => {
+                setNotificacionesActivadas(value);
+                guardado({ notificacionesActivadas: value });
+              }}
             />
           </View>
         </List.Section>
