@@ -30,9 +30,9 @@ export default function Login() {
   const contrasenaInvalida = () => contrasena.trim().length < 4;
 
   /**
-   * Método encargado de 
-   * @param usuario 
-   * @param contrasena 
+   * Método encargado de controlar el inicio de sesión a la zona de administración.
+   * @param usuario Nombre de usuario del administrador.
+   * @param contrasena Contrasena del administrador, encriptada en SHA-256.
    */
   const gestionLogueo = async (usuario: string, contrasena: string) => {
     setCargaInicioSesion(true);

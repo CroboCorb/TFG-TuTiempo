@@ -9,40 +9,42 @@ import CabeceraCentrada from "@/components/CabeceraCentrada";
 import PantallaCiudad from "@/components/PantallaCiudad";
 import PantallaCarga from "@/components/PantallaCarga";
 
-import { infoSegunCardinalidad_API } from "@/functions/GestorAPI";
+import * as GestorAsyncStorage from "@/functions/GestorAsyncStorage";
+import {
+  infoSegunCardinalidad_API,
+  infoSegunNombre_API,
+} from "@/functions/GestorAPI";
 import { UbicacionActual } from "@/functions/GestorUbicacion";
 
 import { Configuracion } from "@/types/Configuracion";
 import { Ciudad } from "@/types/ListadoCiudades";
-import * as GestorAsyncStorage from "@/functions/GestorAsyncStorage";
-
-const CONN_ERROR =
-  "Hubo un error en la conexión. Inténtelo de nuevo más tarde.";
-const LOCATION_ERROR =
-  "Hubo un error al procesar su ubicación. Añada su ciudad manualmente.";
 
 const ANCHO_PANTALLA = Dimensions.get("window").width;
+const CONN_ERROR = "Hubo un error en la conexión.";
 
 export default function PantallaTiempo() {
   const theme = useTheme();
 
-  // Valores de configuración del usuario por defecto
+  // Constantes de control de carga y actualización
+  const esPrimeraCarga = useRef(true);
+  const [cargando, setEstadoCarga] = useState(true);
+
+  // Constantes de datos del usuario
   const [configuracion, setConfiguracion] = useState<Configuracion>({
     unidadTemperatura: "celsius",
     unidadMedidaViento: "kmh",
     unidadMedidaPresion: "hPa",
     notificacionesActivadas: false,
   });
-
-  const esPrimeraCarga = useRef(true);
-  const [cargando, setEstadoCarga] = useState(true);
-
   const [listadoCiudades, setListadoCiudades] = useState<Ciudad[]>([]);
 
+  // Constantes de control de errores de Snackbar
   const [snackbarError, setSnackbarError] = useState(false);
   const [snackbarErrorTXT, setSnackbarErrorTXT] = useState("");
+  const [controlRefrescoFlatlist, setControlRefrescoFlatlist] =
+    useState<number>();
 
-  /** Método de carga de configuracion */
+  /** Método de carga de la configuración del usuario. */
   const cargarConfig = async () => {
     try {
       const config = await GestorAsyncStorage.cargarConfiguracion();
@@ -55,19 +57,22 @@ export default function PantallaTiempo() {
     }
   };
 
-  /** Método de carga de ciudades */
-  const cargarCiudades = async () => {
+  /**
+   * Método de carga del listado de ciudades del usuario.
+   * @returns Listado de ciudades del usuario, nulo si es vacío.
+   */
+  const cargarCiudades = async (): Promise<Ciudad[] | null> => {
     try {
       const ciudades = await GestorAsyncStorage.cargarListadoCiudades();
       if (ciudades) {
-        const ciudadesParseadas: Ciudad[] = JSON.parse(ciudades);
-        setListadoCiudades(ciudadesParseadas);
+        setListadoCiudades(ciudades);
         console.info("INDEX > Ciudades cargadas correctamente.");
 
-        return ciudadesParseadas;
-      }
+        return ciudades;
+      } else return null;
     } catch (e) {
       console.error("INDEX > Error al cargar las ciudades: ", e);
+      return null;
     }
   };
 
@@ -79,6 +84,7 @@ export default function PantallaTiempo() {
         const ciudades = await cargarCiudades();
 
         if (!ciudades) await obtenerUbicacionInicial();
+        else await actualizarTodasLasCiudades(ciudades);
 
         setEstadoCarga(false);
       } catch (e) {
@@ -103,9 +109,11 @@ export default function PantallaTiempo() {
   );
 
   /**
-   * Método encargado de obtener la previsión del
-   * tiempo según la ubicación actual del usuario.
-   */
+   * Método encargado de inicializar la configuración del usuario y obtener
+   * la información meteorológica de su ciudad actual a través de su
+   * ubicación, agregándolo al listado en caso de haber recibido su
+   * ubicación y los datos pertinentes, o forzando a que agregue
+   * una ciudad manualmente en caso de error. */
   const obtenerUbicacionInicial = async () => {
     const inicializacionConfig = await GestorAsyncStorage.guardarConfiguracion(
       JSON.stringify(configuracion)
@@ -145,18 +153,82 @@ export default function PantallaTiempo() {
 
       if (!resultado) setSnackbarErrorTXT(CONN_ERROR);
       else if (resultado && resultado.status !== 200)
-        setSnackbarErrorTXT(LOCATION_ERROR);
+        router.replace("/ciudades");
     }
   };
 
-  // CONTROL DE REFRESCO AL ACTUALIZAR VALORES INTERNOS DE FLATLIST
-  const [valorControlRefresco, setValorControlRefresco] = useState<number>();
+  /**
+   * Método encargado de actualizar la información meteorológica de
+   * todas las ciudades guardadas en el listado, controlando si fueron
+   * guardadas como ubicación (para actualizar la ciudad en caso necesario)
+   * o no (para actualizar los datos según el nombre y región).
+   * @param ciudades Listado de ciudades del usuario.
+   */
+  const actualizarTodasLasCiudades = async (ciudades: Ciudad[]) => {
+    const ciudadesActualizadas: Ciudad[] = [];
+
+    for (const ciudad of ciudades) {
+      // Si la última actualización fue hace más de 15 minutos, solicita actualización
+      if (
+        (new Date().getTime() - new Date(ciudad.ultimaActualizacion).getTime()) / 6000 >=
+        15
+      ) {
+        try {
+          let respuesta;
+
+          if (ciudad.usaUbicacion) {
+            const ubicacionActual = await UbicacionActual();
+            if (ubicacionActual) {
+              respuesta = await infoSegunCardinalidad_API(
+                ubicacionActual[0].toString(),
+                ubicacionActual[1].toString()
+              );
+            }
+          } else respuesta = await infoSegunNombre_API(ciudad.nombre);
+
+          if (respuesta?.status === 200) {
+            ciudadesActualizadas.push({
+              ...ciudad,
+              ultimaActualizacion: new Date(),
+              meteorologia: respuesta.data,
+            });
+            console.info(
+              `INDEX > Datos de ciudad actualizada: ${ciudad.nombre}`
+            );
+          } else {
+            ciudadesActualizadas.push(ciudad);
+            console.warn(
+              `INDEX > Datos de ciudad sin actualizar: ${ciudad.nombre}`
+            );
+          }
+        } catch (e) {
+          ciudadesActualizadas.push(ciudad);
+          console.error(
+            `INDEX > Error al actualizar los datos de ${ciudad.nombre}: ${e}`
+          );
+        }
+      } else ciudadesActualizadas.push(ciudad);
+    }
+
+    const nuevoListado =
+      await GestorAsyncStorage.actualizarListadoCiudadesCompleto(
+        ciudadesActualizadas
+      );
+    if (nuevoListado) setListadoCiudades(nuevoListado);
+    else setListadoCiudades(ciudadesActualizadas);
+  };
+
+  /**
+   * Método encargado de manejar la actualización de datos de la
+   * Flatlist al recargar el listado y enviar un valor de refresco.
+   * @param index Índice de ciudad que solicitó una actualización.
+   */
   const manejarActualizacionCiudad = (index: number) => {
     const recargaCiudades = async () => {
       const ciudades = await GestorAsyncStorage.cargarListadoCiudades();
-      if (ciudades !== null) {
-        setListadoCiudades(JSON.parse(ciudades));
-        setValorControlRefresco(Date.now());
+      if (ciudades) {
+        setListadoCiudades(ciudades);
+        setControlRefrescoFlatlist(Date.now());
         console.info(
           "INDEX > Datos de ciudad en índice",
           index,
@@ -182,7 +254,7 @@ export default function PantallaTiempo() {
 
       <FlatList
         data={listadoCiudades}
-        extraData={valorControlRefresco}
+        extraData={controlRefrescoFlatlist}
         horizontal
         pagingEnabled
         showsVerticalScrollIndicator={false}
@@ -193,6 +265,7 @@ export default function PantallaTiempo() {
             <PantallaCiudad
               infoMeteorologia={item.meteorologia}
               configuracion={configuracion}
+              ultimaActualizacion={item.ultimaActualizacion}
               esPorUbicacion={item.usaUbicacion}
               onUpdate={() => manejarActualizacionCiudad(index)}
             />

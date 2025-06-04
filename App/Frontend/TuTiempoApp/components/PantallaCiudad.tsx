@@ -32,26 +32,45 @@ import { Ciudad } from "@/types/ListadoCiudades";
 
 import { UbicacionActual } from "@/functions/GestorUbicacion";
 import { actualizarListadoCiudades } from "@/functions/GestorAsyncStorage";
-import { infoSegunCardinalidad_API, infoSegunNombre_API } from "@/functions/GestorAPI";
+import {
+  infoSegunCardinalidad_API,
+  infoSegunNombre_API,
+} from "@/functions/GestorAPI";
 
 import CabeceraCentrada from "./CabeceraCentrada";
 import ModalAlerta from "./ModalAlerta";
-import { convertirMedidaPresion, convertirMedidaViento } from "@/functions/Utilidades";
+import {
+  convertirMedidaPresion,
+  convertirMedidaViento,
+} from "@/functions/Utilidades";
 
 export default function PantallaCiudad({
   infoMeteorologia,
   configuracion,
+  ultimaActualizacion,
   esPorUbicacion,
   onUpdate,
 }: {
   infoMeteorologia: InfoMeteorologia;
   configuracion: Configuracion;
+  ultimaActualizacion: Date;
   esPorUbicacion: boolean;
   onUpdate?: () => void;
 }) {
   const theme = useTheme();
 
-  // Valores de ícono animado de temperatura
+  // Constante de control de recarga
+  const [recarga, setEstadoRecarga] = useState(false);
+
+  // Constantes de control de conversión de medidas
+  const [climaActualViento, setClimaActualViento] = useState<string>("");
+  const [climaActualPresion, setClimaActualPresion] = useState<string>("");
+
+  // Constantes de control de visibilidad de modales de alerta
+  const [datosModal, setDatosModal] = useState<InfoMeteorologia["alertas"]>();
+  const [visibilidadModal, setVisibilidadModal] = useState<boolean>(false);
+
+  // Constantes de ícono animado de temperatura
   const escalaIcono = useSharedValue(1);
   const estiloAnimadoIcono = useAnimatedStyle(() => {
     return {
@@ -71,60 +90,71 @@ export default function PantallaCiudad({
     return () => clearInterval(interval);
   }, []);
 
-  // Constantes de control de visibilidad de modales de alerta
-  const [datosModal, setDatosModal] = useState<InfoMeteorologia["alertas"]>();
-  const [visibilidadModal, setVisibilidadModal] = useState<boolean>(false);
-
-  const [recarga, setEstadoRecarga] = useState(false);
+  /**
+   * Método encargado de actualizar la información meteorológica de la
+   * pantalla actual, diferenciando las solicitudes según si la ciudad
+   * fue solicitada / guardada con ubicación o no, y llamando al método
+   * padre "onUpdate()" para actualizar la Flatlist desde el índice.
+   */
   const actualizarInfo = async () => {
     setEstadoRecarga(true);
     let resultado;
 
-    if (esPorUbicacion) {
-      const ubicacionActual = await UbicacionActual();
+    if ((new Date().getTime() - new Date(ultimaActualizacion).getTime()) / 6000 >= 15) {
+      if (esPorUbicacion) {
+        const ubicacionActual = await UbicacionActual();
 
-      if (ubicacionActual) {
-        resultado = await infoSegunCardinalidad_API(
-          ubicacionActual[0].toString(),
-          ubicacionActual[1].toString()
-        );
+        if (ubicacionActual) {
+          resultado = await infoSegunCardinalidad_API(
+            ubicacionActual[0].toString(),
+            ubicacionActual[1].toString()
+          );
+        }
+      } else 
+        resultado = await infoSegunNombre_API(infoMeteorologia.ubicacion);
+
+      if (resultado && resultado.status === 200) {
+        const nuevaCiudad: Ciudad = {
+          nombre: resultado.data.ubicacion,
+          usaUbicacion: esPorUbicacion,
+          ultimaActualizacion: new Date(),
+          meteorologia: resultado.data,
+        };
+
+        const valorRetorno = await actualizarListadoCiudades(nuevaCiudad);
+        if (valorRetorno) {
+          onUpdate?.();
+        } else
+          console.error("INDEX > Error al actualizar el listado de ciudades.");
+      } else if (!resultado || (resultado && resultado.status !== 200)) {
+        console.error("PantallaCiudad > CONN ERROR.");
       }
-    } else {
-      resultado = await infoSegunNombre_API(infoMeteorologia.ubicacion);
-    }
-
-    if (resultado && resultado.status === 200) {
-      const nuevaCiudad: Ciudad = {
-        nombre: resultado.data.ubicacion,
-        usaUbicacion: esPorUbicacion,
-        ultimaActualizacion: new Date(),
-        meteorologia: resultado.data,
-      };
-
-      const valorRetorno = await actualizarListadoCiudades(nuevaCiudad);
-      if (valorRetorno) {
-        onUpdate?.();
-      } else
-        console.error("INDEX > Error al actualizar el listado de ciudades.");
-    } else if (!resultado || (resultado && resultado.status !== 200)) {
-      console.error("PantallaCiudad > CONN ERROR.");
     }
 
     setEstadoRecarga(false);
   };
 
-  const [climaActualViento, setClimaActualViento] = useState<string>("");
-  const [climaActualPresion, setClimaActualPresion] = useState<string>("");
+  // Convierte los datos a la medida preferida del usuario
   useEffect(() => {
     const convertir = async () => {
       if (!recarga) {
-        setClimaActualViento(await convertirMedidaViento(configuracion.unidadMedidaViento, infoMeteorologia.clima_actual.viento_kmh));
-        setClimaActualPresion(await convertirMedidaPresion(configuracion.unidadMedidaPresion, infoMeteorologia.clima_actual.presion_mb));
+        setClimaActualViento(
+          await convertirMedidaViento(
+            configuracion.unidadMedidaViento,
+            infoMeteorologia.clima_actual.viento_kmh
+          )
+        );
+        setClimaActualPresion(
+          await convertirMedidaPresion(
+            configuracion.unidadMedidaPresion,
+            infoMeteorologia.clima_actual.presion_mb
+          )
+        );
       }
     };
 
     convertir();
-  }, [recarga, infoMeteorologia, configuracion])
+  }, [recarga, infoMeteorologia, configuracion]);
 
   return (
     <View>
@@ -245,7 +275,8 @@ export default function PantallaCiudad({
                   infoMeteorologia.clima_actual.viento_grados +
                   "°"
                 }
-                enterTouchDelay={250}
+                enterTouchDelay={0}
+                leaveTouchDelay={1000}
               >
                 <View style={styles.elementoResumen}>
                   <MaterialCommunityIcons
@@ -253,9 +284,7 @@ export default function PantallaCiudad({
                     size={24}
                     color={theme.colors.primary}
                   />
-                  <Text style={styles.txtValor}>
-                    {climaActualViento}
-                  </Text>
+                  <Text style={styles.txtValor}>{climaActualViento}</Text>
                   <Text style={styles.txtResumen}>Viento</Text>
                 </View>
               </Tooltip>
@@ -380,7 +409,13 @@ export default function PantallaCiudad({
             }}
           >
             {/* INFORMACION ASTRONÓMICA */}
-            <Card style={{ flex: 1, flexDirection: 'column', justifyContent: 'center' }}>
+            <Card
+              style={{
+                flex: 1,
+                flexDirection: "column",
+                justifyContent: "center",
+              }}
+            >
               <Card.Title title="Astronomía" />
               <Card.Content>
                 <Text style={{ fontWeight: "bold" }}>
@@ -397,7 +432,13 @@ export default function PantallaCiudad({
             </Card>
 
             {/* INFORMACIÓN GENERAL */}
-            <Card style={{ flex: 1, flexDirection: 'column', justifyContent: 'center' }}>
+            <Card
+              style={{
+                flex: 1,
+                flexDirection: "column",
+                justifyContent: "center",
+              }}
+            >
               <Card.Title title="General" />
               <Card.Content>
                 <Text style={{ fontWeight: "bold" }}>

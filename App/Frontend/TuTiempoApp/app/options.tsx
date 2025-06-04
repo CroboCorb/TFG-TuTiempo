@@ -8,7 +8,6 @@ import {
   List,
   useTheme,
   TouchableRipple,
-  Snackbar,
   Switch,
 } from "react-native-paper";
 import { Dropdown } from "react-native-paper-dropdown";
@@ -43,12 +42,14 @@ const MEDIDAS_PRESION = [
 export default function Options() {
   const theme = useTheme();
 
-  const [unidadTemperatura, setUnidadTemperatura] = useState<string>();
-  const [unidadMedidaViento, setUnidadMedidaViento] = useState<string>();
-  const [unidadMedidaPresion, setUnidadMedidaPresion] = useState<string>();
-  const [notificacionesActivadas, setNotificacionesActivadas] = useState(false);
-
+  // Constante de control de carga
   const [cargando, setEstadoCarga] = useState(true);
+
+  // Constantes de configuración del usuario
+  const [unidadTemperatura, setUnidadTemperatura] = useState<string>("celsius");
+  const [unidadMedidaViento, setUnidadMedidaViento] = useState<string>("kmh");
+  const [unidadMedidaPresion, setUnidadMedidaPresion] = useState<string>("hPa");
+  const [notificacionesActivadas, setNotificacionesActivadas] = useState<boolean>(false);
 
   // Cargar la configuración del usuario
   useEffect(() => {
@@ -62,13 +63,8 @@ export default function Options() {
         setNotificacionesActivadas(valores.notificacionesActivadas || false);
 
         console.info("OPTIONS > Configuración cargada correctamente.");
-      } else {
+      } else 
         console.warn("OPTIONS > No existe configuración en memoria.");
-        setUnidadTemperatura("celsius");
-        setUnidadMedidaViento("kmh");
-        setUnidadMedidaPresion("hPa");
-        setNotificacionesActivadas(false);
-      }
 
       setEstadoCarga(false);
     };
@@ -76,7 +72,10 @@ export default function Options() {
     carga();
   }, []);
 
-  // Guardar los cambios del usuario
+  /**
+   * Guarda los cambios de configuración del usuario.
+   * @param nuevaConfiguracion Parámetro actualizado.
+   */
   const guardado = async (nuevaConfiguracion: any) => {
     const configuracion = {
       unidadTemperatura,

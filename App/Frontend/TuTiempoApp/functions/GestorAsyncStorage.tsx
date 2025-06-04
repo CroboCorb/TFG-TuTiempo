@@ -41,10 +41,10 @@ export async function guardarConfiguracion(
  * Método encargado de cargar el listado de ciudades almacenado en AsyncStorage
  * @returns Cadena guardada de ciudades en AsyncStorage, nulo en caso de no existir
  */
-export async function cargarListadoCiudades(): Promise<string | null> {
+export async function cargarListadoCiudades(): Promise<Ciudad[] | null> {
   try {
     const ciudades = await AsyncStorage.getItem(CIUDADES);
-    return ciudades;
+    return ciudades ? JSON.parse(ciudades) : null;
   } catch {
     return null;
   }
@@ -59,48 +59,77 @@ export async function cargarListadoCiudades(): Promise<string | null> {
  * @returns Listado de ciudades modificado con la nueva ciudad, nulo en caso de error.
  */
 export async function actualizarListadoCiudades(
-  nuevaCiudad: Ciudad,
+  nuevaCiudad: Ciudad
 ): Promise<Ciudad[] | null> {
   try {
-    let listadoSinParseo = await cargarListadoCiudades();
-    const listadoOriginal: Ciudad[] =
-      listadoSinParseo !== null ? JSON.parse(listadoSinParseo) : [];
-
-    const existe = listadoOriginal.some(
-      (ciudad) =>
-        normalizarTexto(ciudad.nombre) === normalizarTexto(nuevaCiudad.nombre)
-    );
-
     let nuevoListado: Ciudad[] = [];
+    const listadoCiudades = await cargarListadoCiudades();
 
-    if (existe) {
-      nuevoListado = listadoOriginal.map((ciudad) => {
-        const mismaCiudad =
-          normalizarTexto(ciudad.nombre) ===
-          normalizarTexto(nuevaCiudad.nombre);
-
-        if (mismaCiudad)
-          return {
-            ...nuevaCiudad,
-            usaUbicacion: ciudad.usaUbicacion || nuevaCiudad.usaUbicacion,
-          };
-
-        return nuevaCiudad.usaUbicacion
-          ? { ...ciudad, usaUbicacion: false }
-          : ciudad;
-      });
-    } else {
-      nuevoListado = listadoOriginal.map((ciudad) =>
-        nuevaCiudad.usaUbicacion ? { ...ciudad, usaUbicacion: false } : ciudad
+    if (listadoCiudades) {
+      const existe = listadoCiudades.some(
+        (ciudad) =>
+          normalizarTexto(ciudad.nombre) === normalizarTexto(nuevaCiudad.nombre)
       );
-      nuevoListado.push(nuevaCiudad);
-    }
 
-    await AsyncStorage.setItem(CIUDADES, JSON.stringify(nuevoListado));
-    return nuevoListado.sort(
-      (a, b) => (b.usaUbicacion ? 1 : 0) - (a.usaUbicacion ? 1 : 0)
-    );
+      if (existe) {
+        nuevoListado = listadoCiudades.map((ciudad) => {
+          const mismaCiudad =
+            normalizarTexto(ciudad.nombre) ===
+            normalizarTexto(nuevaCiudad.nombre);
+
+          if (mismaCiudad)
+            return {
+              ...nuevaCiudad,
+              usaUbicacion: ciudad.usaUbicacion || nuevaCiudad.usaUbicacion,
+            };
+
+          return nuevaCiudad.usaUbicacion
+            ? { ...ciudad, usaUbicacion: false }
+            : ciudad;
+        });
+      } else {
+        nuevoListado = listadoCiudades.map((ciudad) =>
+          nuevaCiudad.usaUbicacion ? { ...ciudad, usaUbicacion: false } : ciudad
+        );
+        nuevoListado.push(nuevaCiudad);
+      }
+
+      nuevoListado = nuevoListado.sort(
+        (a, b) => (b.usaUbicacion ? 1 : 0) - (a.usaUbicacion ? 1 : 0)
+      );
+      await AsyncStorage.setItem(CIUDADES, JSON.stringify(nuevoListado));
+      return nuevoListado;
+    } else {
+      nuevoListado.push(nuevaCiudad);
+      await AsyncStorage.setItem(CIUDADES, JSON.stringify(nuevoListado));
+      return nuevoListado;
+    }
   } catch (error) {
+    return null;
+  }
+}
+
+/**
+ *
+ * @param listadoCiudadesActualizadas
+ * @returns
+ */
+export async function actualizarListadoCiudadesCompleto(
+  listadoCiudadesActualizadas: Ciudad[]
+): Promise<Ciudad[] | null> {
+  try {
+    await AsyncStorage.setItem(
+      CIUDADES,
+      JSON.stringify(
+        listadoCiudadesActualizadas.sort(
+          (a, b) => (b.usaUbicacion ? 1 : 0) - (a.usaUbicacion ? 1 : 0)
+        )
+      )
+    );
+
+    const listado = await AsyncStorage.getItem(CIUDADES);
+    return listado ? JSON.parse(listado) : null;
+  } catch {
     return null;
   }
 }

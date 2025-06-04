@@ -18,7 +18,7 @@ export async function ComprobarUbicacionActivada() {
  */
 export async function UbicacionActual() {
   if (await ComprobarUbicacionActivada()) {
-    const location = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Low, mayShowUserSettingsDialog: false});
+    const location = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Balanced, mayShowUserSettingsDialog: false});
     return [location.coords.latitude, location.coords.longitude];
   } else return null;
 }

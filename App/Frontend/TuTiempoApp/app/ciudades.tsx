@@ -29,6 +29,7 @@ import {
   cargarListadoCiudades,
 } from "@/functions/GestorAsyncStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Configuracion } from "@/types/Configuracion";
 
 const CIUDADES = "user_cities";
 const indexCiudades = indexarCiudades();
@@ -36,15 +37,27 @@ const indexCiudades = indexarCiudades();
 export default function Ciudades() {
   const theme = useTheme();
 
-  // Valores de preferencias del usuario por defecto
-  const [configuracion, setConfiguracion] = useState({
+  // Valores de configuración del usuario por defecto
+  const [configuracion, setConfiguracion] = useState<Configuracion>({
     unidadTemperatura: "celsius",
     unidadMedidaViento: "kmh",
-    unidadMedidaPresion: "mb",
+    unidadMedidaPresion: "hPa",
+    notificacionesActivadas: false,
   });
 
-  // Método de carga de preferencias
-  const cargarPreferencias = async () => {
+  // Constantes de datos del usuario, control de búsqueda y sugerencias
+  const [listadoCiudades, setListadoCiudades] = useState<Ciudad[]>([]);
+  const [ciudadConsulta, setCiudadConsulta] = useState<string>("");
+  const [sugerenciasCiudades, setSugerenciasCiudades] = useState<ICity[]>([]);
+
+  // Constantes de control de snackbars
+  const [snackbarVisibilidad, setSnackbarVisibilidad] =
+    useState<boolean>(false);
+  const [snackbarTexto, setSnackbarTexto] = useState<string>("");
+  const cerrarSnackbar = async () => setSnackbarVisibilidad(false);
+
+  /** Método de carga de la configuración del usuario. */
+  const cargarConfig = async () => {
     const preferencias = await cargarConfiguracion();
     if (preferencias) {
       console.info("CIUDADES > Configuración cargada correctamente.");
@@ -52,30 +65,17 @@ export default function Ciudades() {
     } else console.error("CIUDADES > Error al cargar la configuración");
   };
 
-  // Método de carga de ciudades guardadas
-  const cargarCiudades = useCallback(() => {
-    const cargar = async () => {
-      const ciudades = await cargarListadoCiudades();
-      if (ciudades) {
-        const ciudadesParseadas: Ciudad[] = JSON.parse(ciudades);
-        const ciudadesOrdenadas = ciudadesParseadas.sort(
-          (a, b) => (b.usaUbicacion ? 1 : 0) - (a.usaUbicacion ? 1 : 0)
-        );
-
-        setListadoCiudades(ciudadesOrdenadas);
-        console.info("CIUDADES > Ciudades cargadas correctamente.");
-      } else
-        console.error("CIUDADES > Error al cargar el listado de ciudades.");
-    };
-
-    cargar();
+  /** Método de carga del listado de ciudades del usuario. */
+  const cargarCiudades = useCallback(async () => {
+    const ciudades = await cargarListadoCiudades();
+    if (ciudades) {
+      setListadoCiudades(ciudades);
+      console.info("CIUDADES > Ciudades cargadas correctamente.");
+    } else
+      console.error("CIUDADES > Error al cargar el listado de ciudades.");
   }, []);
 
-  const [listadoCiudades, setListadoCiudades] = useState<Ciudad[]>([]);
-  const [ciudadConsulta, setCiudadConsulta] = useState("");
-  const [sugerenciasCiudades, setSugerenciasCiudades] = useState<ICity[]>([]);
-
-  // Filtrado con debounce (mejor UX)
+  /** Filtrado con debounce (optimización de UX) */
   const filtrarCiudades = debounce((input) => {
     if (input.length < 2) {
       setSugerenciasCiudades([]);
@@ -91,19 +91,19 @@ export default function Ciudades() {
     filtrarCiudades(ciudadConsulta);
   }, [ciudadConsulta]);
 
-  // Ejecución al recibir enfoque
+  // Recarga al enfocar
   useFocusEffect(
     useCallback(() => {
-      cargarPreferencias();
+      cargarConfig();
       cargarCiudades();
     }, [])
   );
 
-  const [snackbarVisibilidad, setSnackbarVisibilidad] =
-    useState<boolean>(false);
-  const [snackbarTexto, setSnackbarTexto] = useState<string>("");
-  const cerrarSnackbar = async () => setSnackbarVisibilidad(false);
-
+  /**
+   * Método encargado de agregar la ciudad solicitada al listado,
+   * buscando la región en la que se encuentra, reemplazando carácteres
+   * inválidos para mejorar las coincidencias, y solicitando datos a la API.
+   */
   const agregarNuevaCiudad = async () => {
     if (listadoCiudades.length <= 10) {
       const resultadoBusqueda = buscarCiudad(indexCiudades, ciudadConsulta);
@@ -121,7 +121,7 @@ export default function Ciudades() {
           meteorologia: resultadoMeteo.data,
         };
 
-        const resultado = await actualizarListadoCiudades(nuevaCiudad, false);
+        const resultado = await actualizarListadoCiudades(nuevaCiudad);
         if (resultado) {
           setListadoCiudades(resultado);
           console.info(
@@ -139,8 +139,8 @@ export default function Ciudades() {
   };
 
   /**
-   * Método encargado de eliminar una ciudad del AsyncStorage
-   * @param ciudad Ciudad a eliminar de AsyncStorage
+   * Método encargado de eliminar una ciudad de AsyncStorage.
+   * @param ciudad Ciudad a eliminar de AsyncStorage.
    */
   const eliminarCiudad = async (
     nombreCiudad: string,

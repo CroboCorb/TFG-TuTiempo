@@ -25,10 +25,10 @@ export async function encriptarTexto(cadena: string): Promise<string> {
 }
 
 /**
- * 
- * @param tipoMedida 
- * @param valorEnKmh 
- * @returns 
+ * Convierte la medida de viento a la que solicita el usuario.
+ * @param tipoMedida Tipo de medida a la que convertir (beaufort, mph, ms, kn).
+ * @param valorEnKmh Valor de referencia en km/h.
+ * @returns Cadena con valor convertido y tipo de medida.
  */
 export async function convertirMedidaViento(
   tipoMedida: string,
@@ -39,8 +39,6 @@ export async function convertirMedidaViento(
     case "beaufort":
       const beaufort = await calcularEscalaBeaufort(valor);
       return `${beaufort} bft`;
-    case "kmh":
-      return `${valor.toFixed(1)} km/h`;
     case "mph":
       return `${(valor * 0.621371).toFixed(1)} mph`;
     case "ms":
@@ -53,9 +51,9 @@ export async function convertirMedidaViento(
 }
 
 /**
- * 
- * @param valorEnKmh 
- * @returns 
+ * Convierte la medida de viento a escala Beaufort.
+ * @param valorEnKmh Valor de referencia en km/h.
+ * @returns Número en la escala Beaufort.
  */
 async function calcularEscalaBeaufort(valorEnKmh: number): Promise<number> {
   const escalas = [
@@ -79,9 +77,10 @@ async function calcularEscalaBeaufort(valorEnKmh: number): Promise<number> {
 }
 
 /**
- * 
- * @param tipoMedida 
- * @param valorEnMbar 
+ * Método encargado de convertir la medida de presión
+ * a la que ha solicitado el usuario en sus preferencias.
+ * @param tipoMedida Tipo de medida a la que convertir (hPa, mbar, mmHg, inHg, atm).
+ * @param valorEnMbar Cadena con valor convertido y tipo de medida.
  */
 export async function convertirMedidaPresion(
   tipoMedida: string,
@@ -89,8 +88,8 @@ export async function convertirMedidaPresion(
 ): Promise<string> {
   const valor = parseFloat(valorEnMbar);
   switch (tipoMedida) {
-    case "hPa":
-      return `${valorEnMbar} hPa`;
+    case "mbar":
+      return `${valorEnMbar} mbar`;
     case "mmHg":
       return `${(valor * 0.750062).toFixed(2)} mmHg`;
     case "inHg":
@@ -98,6 +97,6 @@ export async function convertirMedidaPresion(
     case "atm":
       return `${(valor / 1013.25).toFixed(2)} atm`;
     default:
-      return "";
+      return `${valorEnMbar} hPa`;
   }
 }
