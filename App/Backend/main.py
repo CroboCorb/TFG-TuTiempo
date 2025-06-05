@@ -23,6 +23,9 @@ import modelsBase
 ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 ALGORITHM = "HS256"
 
+URL_PREVISION = "http://api.weatherapi.com/v1/forecast.json"
+URL_ASTRONOMIA = "http://api.weatherapi.com/v1/astronomy.json"
+
 # CARGA DE ARCHIVO JSON CON ÍCONOS DE TIEMPO
 with open("refs/IconosTiempo.json", "r", encoding="utf-8") as f:
     ICONOS_TIEMPO: dict = json.load(f)
@@ -37,7 +40,7 @@ with open("refs/Cardinalidad.json", "r", encoding="utf-8") as f:
 
 
 app = FastAPI()
-locale.setlocale(locale.LC_TIME, "es_ES")
+locale.setlocale(locale.LC_TIME, "es_ES.UTF-8")
 
 origins = ["*"]
 app.add_middleware(
@@ -58,6 +61,8 @@ async def get_db():
 db_dependency = Annotated[AsyncSession, Depends(get_db)]
 
 def create_tables():
+    """Inicia la creación de tablas si éstas no existen"""
+
     sync_engine = create_engine(os.getenv('BBDD_SYNC'))
     modelsDB.Base.metadata.create_all(bind=sync_engine)
 
@@ -74,12 +79,32 @@ create_tables()
 # =============== VERIFICACIÓN DE JWT Y KEYS ===============
 
 async def crearTokenJWT(user_id: UUID4):
+    """
+    Crea un token JWT según una UUID de usuario.
+
+    Args:
+        user_id (UUID4): ID del usuario que inicia sesión
+
+    Returns:
+        out: Token generado (token: str) y fecha de expiración (expire: datetime)
+    """
+
     expire = datetime.now() + timedelta(weeks=2)
     payload = {"sub": str(user_id), "exp": expire}
     token = jwt.encode(payload, ENCRYPTION_KEY, algorithm=ALGORITHM)
     return token, expire
 
 async def verificarTokenJWT(req: Request, db: db_dependency):
+    """
+    Verifica la 
+
+    Args:
+        req (Request): Petición recibida con cabecera de autorización.
+
+    Returns:
+        bool: Verdadero si es válida, excepción en caso contrario.
+    """
+
     token = req.headers.get("Authorization")
     if not token:
         raise HTTPException( status_code = 401, detail = "Sin cabecera de autorización" )
@@ -188,11 +213,18 @@ async def verificarToken(token: str = Query(..., description="Token JWT a verifi
     tags=["Meteorología"]
 )
 async def infoMeteorologíaPorNombre(ciudadYRegion: str, db: db_dependency):
-    url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={f"{ciudadYRegion},Spain"}&days=7&aqi=no&alerts=yes&lang=es"
-    respuesta = requests.get(url)
+    parametros = {
+        "key": os.getenv("WEATHER_APIKEY"),
+        "q": f"{ciudadYRegion},Spain",
+        "days": 3,
+        "aqi": "no",
+        "alerts": "yes",
+        "lang": "es"
+    }
+    respuesta = requests.get(URL_PREVISION, params = parametros)
     
     if respuesta.status_code == 200:
-        return await limpiezaDatosPronostico(respuesta.json(), url.split("&days")[0])
+        return await limpiezaDatosPronostico(respuesta.json(), ciudadYRegion, None, None)
     else:
         return {"error": f"Error en la solicitud: {respuesta.status_code}"}
     
@@ -204,17 +236,42 @@ async def infoMeteorologíaPorNombre(ciudadYRegion: str, db: db_dependency):
     tags=["Meteorología"]
 )
 async def infoMeteorologíaPorCardinalidad(latitud: str, longitud: str, db: db_dependency):
-    url = f"http://api.weatherapi.com/v1/forecast.json?key={os.getenv('WEATHER_APIKEY')}&q={f"{latitud},{longitud}"}&days=3&aqi=no&alerts=yes&lang=es"
-    respuesta = requests.get(url)
+    parametros = {
+        "key": os.getenv("WEATHER_APIKEY"),
+        "q": f"{latitud},{longitud}",
+        "days": 3,
+        "aqi": "no",
+        "alerts": "yes",
+        "lang": "es"
+    }
+    respuesta = requests.get(URL_PREVISION, params = parametros)
 
     if respuesta.status_code == 200:
-        return await limpiezaDatosPronostico(respuesta.json(), url.split("&days")[0])
+        return await limpiezaDatosPronostico(respuesta.json(), None, latitud, longitud)
     else:
         return {"error": f"Error en la solicitud: {respuesta.status_code}"}
 
-async def limpiezaDatosPronostico(pronostico, url: str):
-    urlSolicitud = url.replace("forecast.json", "astronomy.json") + f"&dt={f"{datetime.now().date()}"}"
-    respuesta = requests.get(urlSolicitud)
+async def limpiezaDatosPronostico(pronostico: dict, ciudadYRegion: str | None, latitud: str | None, longitud: str | None):
+    """
+    Solicita los datos astronómicos de la ciudad recibida por parámetro,
+    ordenando dichos datos junto con los recibidos de pronóstico en un JSON.
+
+    Args:
+        pronostico (dict): Pronóstico en formato JSON recibido de WeatherAPI.
+        ciudadYRegion: (str | None): Ciudad y región solicitada por el usuario.
+        latitud: (str | None): Latitud de la ubicación del usuario.
+        longitud: (str | None): Longitud de la ubicación del usuario.
+
+    Returns:
+        dict: JSON formateado.
+    """
+
+    parametros = {
+        "key": os.getenv("WEATHER_APIKEY"),
+        "q": f"{ciudadYRegion},Spain" if ciudadYRegion != None else f"{latitud},{longitud}",
+        "dt": f"{datetime.now().date()}",
+    }
+    respuesta = requests.get(URL_ASTRONOMIA, params = parametros)
 
     if respuesta.status_code == 200:
         jsonRespuesta = respuesta.json()
@@ -269,7 +326,7 @@ async def limpiezaDatosPronostico(pronostico, url: str):
                 "prob_lluvia": dia["day"]["daily_chance_of_rain"],
                 "prob_nieve": dia["day"]["daily_chance_of_snow"],
                 "condicion": dia["day"]["condition"]["text"],
-                "icono": await sustituirIconoTiempo(str(dia["day"]["condition"]["icon"])[-7:].replace(".png",""), 1),
+                "icono": await sustituirIconoTiempo(str(dia["day"]["condition"]["icon"])[-7:].replace(".png",""), True if 1 else False),
             } for dia in pronostico["forecast"]["forecastday"]
         ],
         "astronomia": datosAstronomia,
@@ -287,9 +344,21 @@ async def limpiezaDatosPronostico(pronostico, url: str):
         ]
     }
 
-async def sustituirIconoTiempo(numIcono: str, esDia: int):
+async def sustituirIconoTiempo(numIcono: str, esDia: bool):
+    """
+    Sustituye el número de ícono recibido de WeatherAPI por su contraparte
+    de [Material Design Icons](https://pictogrammers.com/library/mdi/).
+
+    Args:
+        numIcono (str): Número de ícono recibido de WeatherAPI
+        esDia (bool): Verdadero para variante diurna, falso para nocturna.
+
+    Returns:
+        str: Nombre de ícono (ej: weather-sunny)
+    """
+
     if numIcono == "113" or numIcono == "116":
-        if esDia == 1: numIcono = numIcono + "_A"
+        if esDia: numIcono = numIcono + "_A"
         else: numIcono = numIcono + "_B"
 
     iconoMDI = ICONOS_TIEMPO.get(numIcono)
@@ -299,6 +368,17 @@ async def sustituirIconoTiempo(numIcono: str, esDia: int):
         return "weather-cloudy-alert"
     
 async def traducirTexto(cadena: str):
+    """
+    Traducción manual relacionada con alertas
+
+    Args:
+        cadena (str): Cadena a traducir (Alert, Update, Severe, Moderate)
+
+    Returns:
+        str: Cadena traducida a español, 'Desconocido' en 
+        caso de no proporcionar un valor correcto
+    """
+
     if cadena == "Alert":
         return "Alerta"
     elif cadena == "Update":
@@ -307,3 +387,5 @@ async def traducirTexto(cadena: str):
         return "Alta"
     elif cadena == "Moderate":
         return "Moderada"
+    else:
+        return "Desconocido"
