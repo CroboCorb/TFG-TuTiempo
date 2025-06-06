@@ -14,9 +14,11 @@ import {
 import JSONTree from "react-native-json-tree";
 
 import { City, ICity } from "country-state-city";
-import { router } from "expo-router";
-import debounce from "lodash.debounce";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+
+import debounce from "lodash.debounce";
 
 import {
   infoSegunNombre_API,
@@ -25,8 +27,7 @@ import {
   registrarUsuario_API,
 } from "@/functions/GestorAPI";
 import { cargarToken, eliminarToken } from "@/functions/GestorSecureStore";
-import encriptarTexto from "@/functions/Utilidades";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { encriptarTexto } from "@/functions/Utilidades";
 
 export default function Testing() {
   const theme = useTheme();
@@ -35,18 +36,8 @@ export default function Testing() {
       status: "empty",
     },
   ];
-  const [token, setToken] = useState<string>("");
-
-  useEffect(() => {
-    const precargaToken = async () => {
-      const tokenRecibido = await cargarToken();
-      if (tokenRecibido) setToken(tokenRecibido);
-      else router.back();
-    };
-
-    precargaToken();
-  }, []);
-
+  const { token } = useLocalSearchParams();
+  
   // Variable y método de obtención del listado de credenciales
   const [listadoCredenciales, setListadoCredenciales] = useState(emptyJSON);
   const obtenerCredenciales = async () => {
@@ -108,7 +99,7 @@ export default function Testing() {
       return;
     }
     const lowerInput = input.toLowerCase();
-    const resultados = ciudadesPais!
+    const resultados: any = ciudadesPais!
       .filter((c) => c.name.toLowerCase().startsWith(lowerInput))
       .slice(0, 10);
     setSugerenciasCiudades(resultados);
@@ -419,7 +410,7 @@ export default function Testing() {
                 }}
               >
                 <Card.Content>
-                  {sugerenciasCiudades.map((ciudad, index) => (
+                  {sugerenciasCiudades.map((ciudad: any, index) => (
                     <Button
                       key={index}
                       onPress={async () => {

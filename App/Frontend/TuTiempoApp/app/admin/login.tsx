@@ -38,23 +38,28 @@ export default function Login() {
     setCargaInicioSesion(true);
     setError(null);
     try {
-      const respuesta = await iniciarSesion_API(usuario, contrasena);
+      const respuesta: any = await iniciarSesion_API(usuario, contrasena);
       if (respuesta) {
         if (respuesta.status === 200) {
-          console.info('LOGIN > Inicio de sesión correcto con credenciales:',usuario, contrasena)
+          console.info(
+            "LOGIN > Inicio de sesión correcto con credenciales:",
+            usuario,
+            contrasena
+          );
 
           const estadoGuardado = await guardarToken(respuesta.data);
-          if (estadoGuardado) console.info('LOGIN > Token guardado correctamente.');
-          else console.error('LOGIN > Error al guardar el token de sesión.')
+          if (estadoGuardado)
+            console.info("LOGIN > Token guardado correctamente.");
+          else console.error("LOGIN > Error al guardar el token de sesión.");
 
           router.replace("/admin/testing");
         } else {
           setError("Inicio de sesión incorrecto.");
-          console.warn('LOGIN > Inicio de sesión incorrecto.')
-        };
+          console.warn("LOGIN > Inicio de sesión incorrecto.");
+        }
       } else {
         setError("Error de conexión.");
-        console.error('LOGIN > Error de conexión.');
+        console.error("LOGIN > Error de conexión.");
       }
     } catch (e) {
       setError("Ocurrió un error inesperado.");
@@ -67,11 +72,13 @@ export default function Login() {
     const recogerToken = async () => {
       const tokenGuardado = await cargarToken();
       if (tokenGuardado) {
-        console.info('LOGIN > Token verificado correctamente.')
-        router.replace("/admin/testing");
-      }
-      else {
-        console.warn('LOGIN > Token inválido o vacío.');
+        console.info("LOGIN > Token verificado correctamente.");
+        router.replace({
+          pathname: "/admin/testing",
+          params: { token: tokenGuardado },
+        });
+      } else {
+        console.warn("LOGIN > Token inválido o vacío.");
         setEstadoCarga(false);
       }
     };
@@ -161,7 +168,9 @@ export default function Login() {
             <Button
               icon="login"
               mode="contained"
-              onPress={async () => gestionLogueo(usuario, await encriptarTexto(contrasena))}
+              onPress={async () =>
+                gestionLogueo(usuario, await encriptarTexto(contrasena))
+              }
               loading={cargaInicioSesion}
               disabled={
                 usuarioInvalido() || contrasenaInvalida() || cargaInicioSesion
