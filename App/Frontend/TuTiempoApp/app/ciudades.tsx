@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { View, ScrollView, StyleSheet } from "react-native";
 import {
+  ActivityIndicator,
   Appbar,
   Button,
   Card,
@@ -18,10 +19,9 @@ import { City, ICity } from "country-state-city";
 import { StatusBar } from "expo-status-bar";
 import debounce from "lodash.debounce";
 
-import { Ciudad } from "@/types/ListadoCiudades";
+import { Ciudad } from "@/types/Ciudad";
 
-import { buscarCiudad, indexarCiudades } from "@/interface/EstadoYPaisDeCiudad";
-
+import { ciudadesIndexadas, DatosCiudad } from "../functions/Utilidades";
 import { infoSegunNombre_API } from "@/functions/GestorAPI";
 import {
   actualizarListadoCiudades,
@@ -32,7 +32,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Configuracion } from "@/types/Configuracion";
 
 const CIUDADES = "user_cities";
-const indexCiudades = indexarCiudades();
 
 export default function Ciudades() {
   const theme = useTheme();
@@ -48,7 +47,9 @@ export default function Ciudades() {
   // Constantes de datos del usuario, control de búsqueda y sugerencias
   const [listadoCiudades, setListadoCiudades] = useState<Ciudad[]>([]);
   const [ciudadConsulta, setCiudadConsulta] = useState<string>("");
-  const [sugerenciasCiudades, setSugerenciasCiudades] = useState<ICity[]>([]);
+  const [sugerenciasCiudades, setSugerenciasCiudades] = useState<DatosCiudad[]>([]);
+  const [recogiendoDatosCiudad, setRecogiendoDatosCiudad] =
+    useState<boolean>(false);
 
   // Constantes de control de snackbars
   const [snackbarVisibilidad, setSnackbarVisibilidad] =
@@ -71,20 +72,27 @@ export default function Ciudades() {
     if (ciudades) {
       setListadoCiudades(ciudades);
       console.info("CIUDADES > Ciudades cargadas correctamente.");
-    } else
-      console.error("CIUDADES > Error al cargar el listado de ciudades.");
+    } else console.error("CIUDADES > Error al cargar el listado de ciudades.");
   }, []);
 
-  /** Filtrado con debounce (optimización de UX) */
-  const filtrarCiudades = debounce((input) => {
+  // Filtrado con debounce (optimización de UX)
+  const filtrarCiudades = debounce((input: string) => {
     if (input.length < 2) {
       setSugerenciasCiudades([]);
       return;
     }
-    const resultados = City.getCitiesOfCountry("ES")!
-      .filter((c) => c.name.toLowerCase().startsWith(input.toLowerCase()))
-      .slice(0, 10);
-    setSugerenciasCiudades(resultados);
+
+    const inputLower = input.toLowerCase();
+    const sugerencias: DatosCiudad[] = [];
+
+    for (const [nombre, coincidencias] of ciudadesIndexadas.entries()) {
+      if (nombre.includes(inputLower)) 
+        sugerencias.push(...coincidencias);
+
+      if (sugerencias.length >= 10) break;
+    }
+
+    setSugerenciasCiudades(sugerencias.slice(0, 10));
   }, 100);
 
   useEffect(() => {
@@ -105,12 +113,11 @@ export default function Ciudades() {
    * inválidos para mejorar las coincidencias, y solicitando datos a la API.
    */
   const agregarNuevaCiudad = async () => {
+    setRecogiendoDatosCiudad(true);
+    
     if (listadoCiudades.length <= 10) {
-      const resultadoBusqueda = buscarCiudad(indexCiudades, ciudadConsulta);
-      const resultadoMeteo = await infoSegunNombre_API(
-        resultadoBusqueda[0].ciudad.replaceAll("'", "a ") +
-          "," +
-          resultadoBusqueda[0].nombreRegion
+      const resultadoMeteo: any = await infoSegunNombre_API(
+        ciudadConsulta.replaceAll(', ', ',')
       );
 
       if (resultadoMeteo && resultadoMeteo.status === 200) {
@@ -127,6 +134,7 @@ export default function Ciudades() {
           console.info(
             "CIUDADES > Listado de ciudades actualizado correctamente."
           );
+          router.replace("/");
         } else
           console.error(
             "CIUDADES > Error al actualizar el listado de ciudades."
@@ -136,6 +144,8 @@ export default function Ciudades() {
         setSnackbarVisibilidad(true);
       }
     }
+
+    setRecogiendoDatosCiudad(false);
   };
 
   /**
@@ -155,7 +165,7 @@ export default function Ciudades() {
         setListadoCiudades(nuevasCiudades);
         await AsyncStorage.setItem(CIUDADES, JSON.stringify(nuevasCiudades));
 
-        console.info('CIUDADES > Ciudad eliminada correctamente.')
+        console.info("CIUDADES > Ciudad eliminada correctamente.");
         setSnackbarTexto("Ciudad eliminada correctamente.");
         setSnackbarVisibilidad(true);
       } catch (error) {
@@ -189,10 +199,14 @@ export default function Ciudades() {
           mode="outlined"
           onChangeText={setCiudadConsulta}
           right={
-            <TextInput.Icon
-              icon="send"
-              onPress={async () => agregarNuevaCiudad()}
-            />
+            recogiendoDatosCiudad ? (
+              <ActivityIndicator animating={true}/>
+            ) : (
+              <TextInput.Icon
+                icon="send"
+                onPress={async () => agregarNuevaCiudad()}
+              />
+            )
           }
         />
 
@@ -208,13 +222,13 @@ export default function Ciudades() {
                 <Button
                   key={index}
                   onPress={async () => {
-                    setCiudadConsulta(ciudad.name);
+                    setCiudadConsulta(`${ciudad.ciudad}, ${ciudad.nombreRegion}, ${ciudad.nombrePais}`);
                     setSugerenciasCiudades([]);
                   }}
                   style={{ alignItems: "flex-start" }}
                   contentStyle={{ justifyContent: "flex-start" }}
                 >
-                  {ciudad.name}
+                  {ciudad.ciudad}, {ciudad.nombreRegion}, {ciudad.nombrePais}
                 </Button>
               ))}
             </Card.Content>

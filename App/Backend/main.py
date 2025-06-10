@@ -209,13 +209,14 @@ async def verificarToken(token: str = Query(..., description="Token JWT a verifi
 @app.get(
     "/meteorologia/ciudad",
     summary="Obtener información meteorológica según palabra clave.",
-    description="Controlador encargado de recibir la información meteorológica de una ciudad por su nombre y su región.",
+    description="Controlador encargado de recibir la información meteorológica " \
+    "de una ciudad por su nombre, su región y su país.",
     tags=["Meteorología"]
 )
-async def infoMeteorologíaPorNombre(ciudadYRegion: str, db: db_dependency):
+async def infoMeteorologíaPorNombre(ciudadRegionYPais: str, db: db_dependency):
     parametros = {
         "key": os.getenv("WEATHER_APIKEY"),
-        "q": f"{ciudadYRegion},Spain",
+        "q": ciudadRegionYPais,
         "days": 3,
         "aqi": "no",
         "alerts": "yes",
@@ -224,7 +225,7 @@ async def infoMeteorologíaPorNombre(ciudadYRegion: str, db: db_dependency):
     respuesta = requests.get(URL_PREVISION, params = parametros)
     
     if respuesta.status_code == 200:
-        return await limpiezaDatosPronostico(respuesta.json(), ciudadYRegion, None, None)
+        return await limpiezaDatosPronostico(respuesta.json(), ciudadRegionYPais, None, None)
     else:
         return {"error": f"Error en la solicitud: {respuesta.status_code}"}
     
@@ -251,14 +252,14 @@ async def infoMeteorologíaPorCardinalidad(latitud: str, longitud: str, db: db_d
     else:
         return {"error": f"Error en la solicitud: {respuesta.status_code}"}
 
-async def limpiezaDatosPronostico(pronostico: dict, ciudadYRegion: str | None, latitud: str | None, longitud: str | None):
+async def limpiezaDatosPronostico(pronostico: dict, ciudadRegionYPais: str | None, latitud: str | None, longitud: str | None):
     """
     Solicita los datos astronómicos de la ciudad recibida por parámetro,
     ordenando dichos datos junto con los recibidos de pronóstico en un JSON.
 
     Args:
         pronostico (dict): Pronóstico en formato JSON recibido de WeatherAPI.
-        ciudadYRegion: (str | None): Ciudad y región solicitada por el usuario.
+        ciudadRegionYPais: (str | None): Ciudad región y país solicitado por el usuario.
         latitud: (str | None): Latitud de la ubicación del usuario.
         longitud: (str | None): Longitud de la ubicación del usuario.
 
@@ -268,7 +269,7 @@ async def limpiezaDatosPronostico(pronostico: dict, ciudadYRegion: str | None, l
 
     parametros = {
         "key": os.getenv("WEATHER_APIKEY"),
-        "q": f"{ciudadYRegion},Spain" if ciudadYRegion != None else f"{latitud},{longitud}",
+        "q": ciudadRegionYPais if ciudadRegionYPais != None else f"{latitud},{longitud}",
         "dt": f"{datetime.now().date()}",
     }
     respuesta = requests.get(URL_ASTRONOMIA, params = parametros)

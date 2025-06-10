@@ -6,6 +6,7 @@
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
+    "android:no-metro": "expo run:android --no-bundler",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest --watchAll",
@@ -52,7 +53,8 @@
     "react-native-screens": "~4.4.0",
     "react-native-svg": "15.8.0",
     "expo-background-task": "~0.1.4",
-    "expo-notifications": "~0.29.14"
+    "expo-notifications": "~0.29.14",
+    "expo-task-manager": "~12.0.6"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

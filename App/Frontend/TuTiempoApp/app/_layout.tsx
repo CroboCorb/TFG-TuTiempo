@@ -15,9 +15,9 @@ export default function RootLayout() {
       ? { ...MD3DarkTheme, colors: theme.dark }
       : { ...MD3LightTheme, colors: theme.light };
 
-  useEffect(() => {;
+  useEffect(() => {
     NavigationBar.setBackgroundColorAsync(theme[colorScheme!].background);
-    NavigationBar.setBorderColorAsync(theme[colorScheme!].background)
+    NavigationBar.setBorderColorAsync(theme[colorScheme!].background);
     colorScheme === "light"
       ? NavigationBar.setButtonStyleAsync("dark")
       : NavigationBar.setButtonStyleAsync("light");

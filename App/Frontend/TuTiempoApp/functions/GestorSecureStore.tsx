@@ -12,14 +12,12 @@ export async function cargarToken(): Promise<string | null> {
   const token = await SecureStore.getItemAsync(TOKEN);
   if (token) {
     const respuesta = await verificarToken_API(token);
-    if (respuesta && respuesta.status === 200)
-      return token;
+    if (respuesta && respuesta.status === 200) return token;
     else {
       await SecureStore.deleteItemAsync(TOKEN);
       return null;
     }
-  } else 
-    return null;
+  } else return null;
 }
 
 /**
@@ -41,6 +39,9 @@ export async function guardarToken(tokenAGuardar: string): Promise<boolean> {
 export async function eliminarToken() {
   await SecureStore.deleteItemAsync(TOKEN);
   const token = await cargarToken();
-  if (!token) console.info('SecureStore > Token eliminado correctamente.');
-  else console.error('SecureStore > Token del usuario no eliminado correctamente.');
+  if (!token) console.info("SecureStore > Token eliminado correctamente.");
+  else
+    console.error(
+      "SecureStore > Token del usuario no eliminado correctamente."
+    );
 }

@@ -27,7 +27,7 @@ export default function ModalAlerta({
             <Card.Content>
               <List.Item
                 title="Tipo"
-                titleStyle={{ fontWeight: 'bold' }}
+                titleStyle={{ fontWeight: "bold" }}
                 description={infoAlerta.tipo}
                 descriptionNumberOfLines={null!}
                 left={(props) => <List.Icon {...props} icon="format-text" />}
@@ -35,39 +35,51 @@ export default function ModalAlerta({
               <Divider />
               <List.Item
                 title="Gravedad"
-                titleStyle={{ fontWeight: 'bold' }}
+                titleStyle={{ fontWeight: "bold" }}
                 description={infoAlerta.gravedad}
                 descriptionNumberOfLines={null!}
-                left={(props) => <List.Icon {...props} icon="head-alert-outline" />}
+                left={(props) => (
+                  <List.Icon {...props} icon="head-alert-outline" />
+                )}
               />
               <Divider />
               <List.Item
                 title="Evento"
-                titleStyle={{ fontWeight: 'bold' }}
+                titleStyle={{ fontWeight: "bold" }}
                 description={infoAlerta.evento}
                 descriptionNumberOfLines={null!}
-                left={(props) => <List.Icon {...props} icon="alert-circle-outline" />}
+                left={(props) => (
+                  <List.Icon {...props} icon="alert-circle-outline" />
+                )}
               />
               <Divider />
               <List.Item
                 title="Fecha efectiva"
-                titleStyle={{ fontWeight: 'bold' }}
-                description={infoAlerta.fechaEfectiva.replace("T", " ").replace("+", " (+") + ')'}
+                titleStyle={{ fontWeight: "bold" }}
+                description={
+                  infoAlerta.fechaEfectiva
+                    .replace("T", " ")
+                    .replace("+", " (+") + ")"
+                }
                 descriptionNumberOfLines={null!}
                 left={(props) => <List.Icon {...props} icon="calendar-start" />}
               />
               <Divider />
               <List.Item
                 title="Fecha de expiración"
-                titleStyle={{ fontWeight: 'bold' }}
-                description={infoAlerta.fechaExpiracion.replace("T", " ").replace("+", " (+") + ')'}
+                titleStyle={{ fontWeight: "bold" }}
+                description={
+                  infoAlerta.fechaExpiracion
+                    .replace("T", " ")
+                    .replace("+", " (+") + ")"
+                }
                 descriptionNumberOfLines={null!}
                 left={(props) => <List.Icon {...props} icon="calendar-end" />}
               />
               <Divider />
               <List.Item
                 title="Descripción"
-                titleStyle={{ fontWeight: 'bold' }}
+                titleStyle={{ fontWeight: "bold" }}
                 description={infoAlerta.descripcion}
                 descriptionNumberOfLines={null!}
                 left={(props) => <List.Icon {...props} icon="text" />}
@@ -75,7 +87,7 @@ export default function ModalAlerta({
               <Divider />
               <List.Item
                 title="Instrucciones"
-                titleStyle={{ fontWeight: 'bold' }}
+                titleStyle={{ fontWeight: "bold" }}
                 description={infoAlerta.instruccion}
                 descriptionNumberOfLines={null!}
                 left={(props) => <List.Icon {...props} icon="text-long" />}

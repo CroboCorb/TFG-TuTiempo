@@ -17,7 +17,7 @@ import {
 import { UbicacionActual } from "@/functions/GestorUbicacion";
 
 import { Configuracion } from "@/types/Configuracion";
-import { Ciudad } from "@/types/ListadoCiudades";
+import { Ciudad } from "@/types/Ciudad";
 
 const ANCHO_PANTALLA = Dimensions.get("window").width;
 const CONN_ERROR = "Hubo un error en la conexión.";
@@ -83,10 +83,8 @@ export default function PantallaTiempo() {
         await cargarConfig();
         const ciudades = await cargarCiudades();
 
-        if (!ciudades) await obtenerUbicacionInicial();
+        if (!ciudades || ciudades.length == 0) await obtenerUbicacionInicial();
         else await actualizarTodasLasCiudades(ciudades);
-
-        setEstadoCarga(false);
       } catch (e) {
         console.error("Error durante la inicialización:", e);
       }
@@ -122,7 +120,7 @@ export default function PantallaTiempo() {
       console.log("INDEX > Configuración inicializada.");
     else console.error("INDEX > Error de inicialización de configuración.");
 
-    let resultado;
+    let resultado: any;
     const ubicacionActual = await UbicacionActual();
 
     if (ubicacionActual) {
@@ -130,6 +128,9 @@ export default function PantallaTiempo() {
         ubicacionActual[0].toString(),
         ubicacionActual[1].toString()
       );
+    } else {
+      router.replace("/ciudades");
+      return;
     }
 
     if (resultado && resultado.status === 200) {
@@ -155,6 +156,8 @@ export default function PantallaTiempo() {
       else if (resultado && resultado.status !== 200)
         router.replace("/ciudades");
     }
+
+    setEstadoCarga(false);
   };
 
   /**
@@ -165,16 +168,20 @@ export default function PantallaTiempo() {
    * @param ciudades Listado de ciudades del usuario.
    */
   const actualizarTodasLasCiudades = async (ciudades: Ciudad[]) => {
+    setEstadoCarga(false);
+
     const ciudadesActualizadas: Ciudad[] = [];
 
     for (const ciudad of ciudades) {
       // Si la última actualización fue hace más de 15 minutos, solicita actualización
       if (
-        (new Date().getTime() - new Date(ciudad.ultimaActualizacion).getTime()) / 6000 >=
+        (new Date().getTime() -
+          new Date(ciudad.meteorologia.ultima_actualizacion).getTime()) /
+          60000 >=
         15
       ) {
         try {
-          let respuesta;
+          let respuesta: any;
 
           if (ciudad.usaUbicacion) {
             const ubicacionActual = await UbicacionActual();
@@ -265,7 +272,9 @@ export default function PantallaTiempo() {
             <PantallaCiudad
               infoMeteorologia={item.meteorologia}
               configuracion={configuracion}
-              ultimaActualizacion={item.ultimaActualizacion}
+              ultimaActualizacion={
+                new Date(item.meteorologia.ultima_actualizacion)
+              }
               esPorUbicacion={item.usaUbicacion}
               onUpdate={() => manejarActualizacionCiudad(index)}
             />

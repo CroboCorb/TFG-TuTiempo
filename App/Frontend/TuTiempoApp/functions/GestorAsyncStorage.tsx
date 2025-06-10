@@ -1,4 +1,4 @@
-import { Ciudad } from "@/types/ListadoCiudades";
+import { Ciudad } from "@/types/Ciudad";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { normalizarTexto } from "./Utilidades";
 
@@ -55,7 +55,6 @@ export async function cargarListadoCiudades(): Promise<Ciudad[] | null> {
  * (o actualizar sus datos), comparando cadenas normalizadas, comprobando existencia
  * y coincidencia de ciudades, alternando valores de "usaUbicacion" y reordenándolo.
  * @param nuevaCiudad Nueva ciudad a añadir o actualizar en el listado.
- * @param usaUbicacion Determina si los datos se obtuvieron por geolocalización.
  * @returns Listado de ciudades modificado con la nueva ciudad, nulo en caso de error.
  */
 export async function actualizarListadoCiudades(

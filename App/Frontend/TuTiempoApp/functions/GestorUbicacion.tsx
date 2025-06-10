@@ -1,4 +1,4 @@
-import * as Location from 'expo-location';
+import * as Location from "expo-location";
 
 /**
  * Método de comprobación de permisos y servicios de ubicación
@@ -6,7 +6,7 @@ import * as Location from 'expo-location';
  * se encuentra activada, falso en caso contrario
  */
 export async function ComprobarUbicacionActivada() {
-  const { granted } = await Location.requestForegroundPermissionsAsync();  
+  const { granted } = await Location.requestForegroundPermissionsAsync();
   const locationEnabled = await Location.hasServicesEnabledAsync();
   return granted && locationEnabled ? true : false;
 }
@@ -18,7 +18,10 @@ export async function ComprobarUbicacionActivada() {
  */
 export async function UbicacionActual() {
   if (await ComprobarUbicacionActivada()) {
-    const location = await Location.getCurrentPositionAsync({accuracy: Location.Accuracy.Balanced, mayShowUserSettingsDialog: false});
+    const location = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+      mayShowUserSettingsDialog: false,
+    });
     return [location.coords.latitude, location.coords.longitude];
   } else return null;
 }

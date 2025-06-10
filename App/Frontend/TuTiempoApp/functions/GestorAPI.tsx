@@ -2,9 +2,9 @@ import axios from "axios";
 
 // ========== CONSTANTES ==========
 
-const REQUEST_TIMEOUT = 2500;
+const REQUEST_TIMEOUT = 5000;
 
-const API_URL = "http://10.244.217.31:8000";
+const API_URL = "http://10.244.23.195:8000";
 
 const API_LISTADOCREDENCIALES = API_URL + "/credenciales";
 const API_LOGIN = API_URL + "/credenciales/login";
@@ -158,14 +158,14 @@ export const verificarToken_API = async (token: string) => {
 
 /**
  * Método encargado de consultar los datos meteorológicos de la ciudad solicitada
- * @param ciudad Nombre de la ciudad (+ región) a buscar
+ * @param ciudadRegionYPais Nombre de la ciudad (+ región y país) a buscar
  * @returns JSON con datos meteorológicos
  */
-export const infoSegunNombre_API = async (ciudadYRegion: string) => {
+export const infoSegunNombre_API = async (ciudadRegionYPais: string) => {
   try {
     const respuesta = await axios.get(API_METEOROLOGIA_CIUDAD, {
       timeout: REQUEST_TIMEOUT,
-      params: { ciudadYRegion: ciudadYRegion },
+      params: { ciudadRegionYPais: ciudadRegionYPais },
     });
 
     return respuesta;

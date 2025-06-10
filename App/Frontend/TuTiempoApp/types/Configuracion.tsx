@@ -1,6 +1,6 @@
 export type Configuracion = {
-    unidadTemperatura: string,
-    unidadMedidaViento: string,
-    unidadMedidaPresion: string,
-    notificacionesActivadas: boolean,
-}
+  unidadTemperatura: string;
+  unidadMedidaViento: string;
+  unidadMedidaPresion: string;
+  notificacionesActivadas: boolean;
+};

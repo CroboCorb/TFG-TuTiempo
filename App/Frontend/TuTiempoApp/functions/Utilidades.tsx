@@ -1,4 +1,17 @@
 import * as Crypto from "expo-crypto";
+import indexJson from "../assets/data/ciudadesIndexadas.json";
+
+export type DatosCiudad = {
+  ciudad: string;
+  nombreRegion: string | null;
+  nombrePais: string;
+  codigoPais: string;
+};
+
+// Mapeado de ../assets/data/ciudadesIndexadas.json
+export const ciudadesIndexadas: Map<string, DatosCiudad[]> = new Map(
+  Object.entries(indexJson)
+);
 
 /**
  * Elimina los diacríticos del texto introducido
@@ -71,7 +84,7 @@ async function calcularEscalaBeaufort(valorEnKmh: number): Promise<number> {
     { max: 117, nivel: 11 },
   ];
 
-  for (const escala of escalas) 
+  for (const escala of escalas)
     if (valorEnKmh <= escala.max) return escala.nivel;
   return 12;
 }
@@ -93,7 +106,7 @@ export async function convertirMedidaPresion(
     case "mmHg":
       return `${(valor * 0.750062).toFixed(2)} mmHg`;
     case "inHg":
-      return `${(valor * 0.0393701).toFixed(2)} inHg`
+      return `${(valor * 0.0393701).toFixed(2)} inHg`;
     case "atm":
       return `${(valor / 1013.25).toFixed(2)} atm`;
     default:

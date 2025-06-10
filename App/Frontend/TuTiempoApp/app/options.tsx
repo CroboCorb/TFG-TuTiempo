@@ -49,7 +49,8 @@ export default function Options() {
   const [unidadTemperatura, setUnidadTemperatura] = useState<string>("celsius");
   const [unidadMedidaViento, setUnidadMedidaViento] = useState<string>("kmh");
   const [unidadMedidaPresion, setUnidadMedidaPresion] = useState<string>("hPa");
-  const [notificacionesActivadas, setNotificacionesActivadas] = useState<boolean>(false);
+  const [notificacionesActivadas, setNotificacionesActivadas] =
+    useState<boolean>(false);
 
   // Cargar la configuración del usuario
   useEffect(() => {
@@ -63,14 +64,22 @@ export default function Options() {
         setNotificacionesActivadas(valores.notificacionesActivadas || false);
 
         console.info("OPTIONS > Configuración cargada correctamente.");
-      } else 
-        console.warn("OPTIONS > No existe configuración en memoria.");
+      } else console.warn("OPTIONS > No existe configuración en memoria.");
 
       setEstadoCarga(false);
     };
 
     carga();
   }, []);
+
+  // useEffect(() => {
+  //   const test = async () => {
+  //     if (notificacionesActivadas) await activarTarea();
+  //     else await desactivarTarea();
+  //   };
+
+  //   test();
+  // }, [notificacionesActivadas]);
 
   /**
    * Guarda los cambios de configuración del usuario.
@@ -133,7 +142,7 @@ export default function Options() {
               options={MEDIDAS_TEMPERATURA}
               value={unidadTemperatura}
               onSelect={async (value) => {
-                setUnidadTemperatura(value);
+                setUnidadTemperatura(value!);
                 guardado({ unidadTemperatura: value });
               }}
               mode={"outlined"}
@@ -148,7 +157,7 @@ export default function Options() {
               options={MEDIDAS_VIENTO}
               value={unidadMedidaViento}
               onSelect={async (value) => {
-                setUnidadMedidaViento(value);
+                setUnidadMedidaViento(value!);
                 guardado({ unidadMedidaViento: value });
               }}
               mode={"outlined"}
@@ -163,7 +172,7 @@ export default function Options() {
               options={MEDIDAS_PRESION}
               value={unidadMedidaPresion}
               onSelect={async (value) => {
-                setUnidadMedidaPresion(value);
+                setUnidadMedidaPresion(value!);
                 guardado({ unidadMedidaPresion: value });
               }}
               mode={"outlined"}
@@ -175,7 +184,7 @@ export default function Options() {
         <Divider style={{ marginTop: 16, marginStart: 16, marginEnd: 16 }} />
 
         {/* Gestión de otros ajustes */}
-        <List.Section>
+        <List.Section style={{ display: "none" }}>
           <List.Subheader
             style={{ fontWeight: "bold", textTransform: "uppercase" }}
           >
@@ -224,6 +233,7 @@ export default function Options() {
           <TouchableRipple
             style={{ padding: 15 }}
             onPress={async () => {
+              console.info("OPTIONS > Enlace a repositorio abierto.");
               Linking.openURL("https://github.com/CroboCorb/TFG-TuTiempo");
             }}
           >

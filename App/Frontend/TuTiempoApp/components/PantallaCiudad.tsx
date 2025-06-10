@@ -28,7 +28,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { Configuracion } from "@/types/Configuracion";
 import { InfoMeteorologia } from "@/types/InfoMeteorologia";
-import { Ciudad } from "@/types/ListadoCiudades";
+import { Ciudad } from "@/types/Ciudad";
 
 import { UbicacionActual } from "@/functions/GestorUbicacion";
 import { actualizarListadoCiudades } from "@/functions/GestorAsyncStorage";
@@ -98,9 +98,13 @@ export default function PantallaCiudad({
    */
   const actualizarInfo = async () => {
     setEstadoRecarga(true);
-    let resultado;
+    let resultado: any;
 
-    if ((new Date().getTime() - new Date(ultimaActualizacion).getTime()) / 6000 >= 15) {
+    if (
+      (new Date().getTime() - new Date(ultimaActualizacion).getTime()) /
+        60000 >=
+      15
+    ) {
       if (esPorUbicacion) {
         const ubicacionActual = await UbicacionActual();
 
@@ -110,8 +114,7 @@ export default function PantallaCiudad({
             ubicacionActual[1].toString()
           );
         }
-      } else 
-        resultado = await infoSegunNombre_API(infoMeteorologia.ubicacion);
+      } else resultado = await infoSegunNombre_API(infoMeteorologia.ubicacion);
 
       if (resultado && resultado.status === 200) {
         const nuevaCiudad: Ciudad = {

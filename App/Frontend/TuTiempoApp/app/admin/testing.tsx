@@ -37,15 +37,15 @@ export default function Testing() {
     },
   ];
   const { token } = useLocalSearchParams();
-  
+
   // Variable y método de obtención del listado de credenciales
   const [listadoCredenciales, setListadoCredenciales] = useState(emptyJSON);
   const obtenerCredenciales = async () => {
     const respuesta: any = await listadoCredenciales_API(token);
     if (respuesta && respuesta.status === 200) {
       setListadoCredenciales(respuesta);
-      console.info('TESTING > Credenciales obtenidas correctamente.');
-    } else console.warn('TESTING > Error al obtener las credenciales.');
+      console.info("TESTING > Credenciales obtenidas correctamente.");
+    } else console.warn("TESTING > Error al obtener las credenciales.");
   };
 
   // Variable y método de obtención del listado de tokens
@@ -54,8 +54,8 @@ export default function Testing() {
     const respuesta: any = await listadoTokens_API(token);
     if (respuesta && respuesta.status === 200) {
       setListadoTokens(respuesta);
-      console.info('TESTING > Tokens obtenidos correctamente.');
-    } else console.warn('TESTING > Error al obtener los tokens.');
+      console.info("TESTING > Tokens obtenidos correctamente.");
+    } else console.warn("TESTING > Error al obtener los tokens.");
   };
 
   // Variables de control para el registro
@@ -119,7 +119,7 @@ export default function Testing() {
   const closeMenu = () => setVisible(false);
 
   /**
-   * 
+   *
    */
   const limpiarJSON = async () => {
     setListadoCredenciales(emptyJSON);
@@ -176,10 +176,13 @@ export default function Testing() {
             }}
             title="Limpiar JSONs"
           />
-          <Menu.Item onPress={async () => {
-            await eliminarToken();
-            router.replace('/admin/login');
-          }} title="Cerrar sesión" />
+          <Menu.Item
+            onPress={async () => {
+              await eliminarToken();
+              router.replace("/admin/login");
+            }}
+            title="Cerrar sesión"
+          />
         </Menu>
       </Appbar.Header>
 
