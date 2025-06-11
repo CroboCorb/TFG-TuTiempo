@@ -52,7 +52,10 @@ export default function Login() {
             console.info("LOGIN > Token guardado correctamente.");
           else console.error("LOGIN > Error al guardar el token de sesión.");
 
-          router.replace("/admin/testing");
+          router.replace({
+            pathname: "/admin/testing",
+            params: { token: respuesta.data },
+          });
         } else {
           setError("Inicio de sesión incorrecto.");
           console.warn("LOGIN > Inicio de sesión incorrecto.");
