@@ -21,13 +21,15 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import debounce from "lodash.debounce";
 
 import {
+  infoSegunCardinalidad_API,
   infoSegunNombre_API,
   listadoCredenciales_API,
   listadoTokens_API,
   registrarUsuario_API,
 } from "@/functions/GestorAPI";
-import { cargarToken, eliminarToken } from "@/functions/GestorSecureStore";
-import { encriptarTexto } from "@/functions/Utilidades";
+import { eliminarToken } from "@/functions/GestorSecureStore";
+import { ciudadesIndexadas, DatosCiudad, encriptarTexto } from "@/functions/Utilidades";
+import { UbicacionActual } from "@/functions/GestorUbicacion";
 
 export default function Testing() {
   const theme = useTheme();
@@ -38,14 +40,14 @@ export default function Testing() {
   ];
   const { token } = useLocalSearchParams();
 
-  // Variable y método de obtención del listado de credenciales
-  const [listadoCredenciales, setListadoCredenciales] = useState(emptyJSON);
+  // Variable y método de obtención del listado de usuarios
+  const [listadoUsuarios, setListadoCredenciales] = useState(emptyJSON);
   const obtenerCredenciales = async () => {
     const respuesta: any = await listadoCredenciales_API(token);
     if (respuesta && respuesta.status === 200) {
       setListadoCredenciales(respuesta);
-      console.info("TESTING > Credenciales obtenidas correctamente.");
-    } else console.warn("TESTING > Error al obtener las credenciales.");
+      console.info("TESTING > Usuarios obtenidos correctamente.");
+    } else console.warn("TESTING > Error al obtener los usuarios.");
   };
 
   // Variable y método de obtención del listado de tokens
@@ -88,39 +90,57 @@ export default function Testing() {
   // Variables de control para la búsqueda de ciudades
   const [ciudadConsulta, setCiudadConsulta] = useState("");
   const [infoMeteorologica, setInfoMeteorologica] = useState(emptyJSON);
+  const [sugerenciasCiudades, setSugerenciasCiudades] = useState<DatosCiudad[]>([]);
 
-  const [sugerenciasCiudades, setSugerenciasCiudades] = useState([]);
-  const [ciudadesPais] = useState<ICity[]>(City.getCitiesOfCountry("ES")!);
-
-  // Filtrado con debounce (mejor UX)
-  const filtrarCiudades = debounce((input) => {
+  // Filtrado con debounce (optimización de UX)
+  const filtrarCiudades = debounce((input: string) => {
     if (input.length < 2) {
       setSugerenciasCiudades([]);
       return;
     }
-    const lowerInput = input.toLowerCase();
-    const resultados: any = ciudadesPais!
-      .filter((c) => c.name.toLowerCase().startsWith(lowerInput))
-      .slice(0, 10);
-    setSugerenciasCiudades(resultados);
-  }, 200);
+
+    const inputLower = input.toLowerCase();
+    const sugerencias: DatosCiudad[] = [];
+
+    for (const [nombre, coincidencias] of ciudadesIndexadas.entries()) {
+      if (nombre.includes(inputLower)) 
+        sugerencias.push(...coincidencias);
+
+      if (sugerencias.length >= 10) break;
+    }
+
+    setSugerenciasCiudades(sugerencias.slice(0, 10));
+  }, 100);
 
   useEffect(() => {
     filtrarCiudades(ciudadConsulta);
   }, [ciudadConsulta]);
 
   // Método para la consulta de la meteorología de la ciudad solicitada
-  const consultarDatosMeteorologicos = async () => {
+  const consultarDatosMeteorologicosNombre = async () => {
     const respuesta: any = await infoSegunNombre_API(ciudadConsulta);
     if (respuesta && respuesta.status === 200) setInfoMeteorologica(respuesta);
+  };
+
+  // Método para la consulta de la meteorología de la ubicación
+  const consultarDatosMeteorologicosUbicacion = async () => {
+    const ubicacionActual = await UbicacionActual();
+
+    if (ubicacionActual) {
+      const resultado = await infoSegunCardinalidad_API(
+        ubicacionActual[0].toString(),
+        ubicacionActual[1].toString()
+      );
+
+      if (resultado && resultado.status === 200) 
+        setInfoMeteorologica(resultado.data);
+    } 
   };
 
   const [visible, setVisible] = useState(false);
   const closeMenu = () => setVisible(false);
 
-  /**
-   *
-   */
+  /** Limpia las constantes de datos recibidos */
   const limpiarJSON = async () => {
     setListadoCredenciales(emptyJSON);
     setListadoTokens(emptyJSON);
@@ -202,15 +222,17 @@ export default function Testing() {
               variant="titleLarge"
               style={{ fontWeight: "bold", textAlign: "center" }}
             >
-              Listado de credenciales
+              Listado de usuarios
             </Text>
+            
             <Divider style={{ marginTop: 15, marginBottom: 15 }} />
+
             <Button
               onPress={async () => obtenerCredenciales()}
               icon={"database-arrow-down-outline"}
               mode="contained"
             >
-              Obtener credenciales
+              Obtener usuarios
             </Button>
             <ScrollView
               horizontal
@@ -221,8 +243,8 @@ export default function Testing() {
                 },
               ]}
             >
-              {listadoCredenciales &&
-              !JSON.stringify(listadoCredenciales).includes("empty") ? (
+              {listadoUsuarios &&
+              !JSON.stringify(listadoUsuarios).includes("empty") ? (
                 <View
                   style={{
                     alignItems: "center",
@@ -230,7 +252,7 @@ export default function Testing() {
                     flex: 1,
                   }}
                 >
-                  <JSONTree data={listadoCredenciales} />
+                  <JSONTree data={listadoUsuarios} />
                 </View>
               ) : (
                 <View></View>
@@ -306,11 +328,11 @@ export default function Testing() {
               variant="titleLarge"
               style={{ fontWeight: "bold", textAlign: "center" }}
             >
-              Registrar administrador
+              Registrar usuario
             </Text>
             <Divider style={{ marginTop: 15, marginBottom: 15 }} />
             <TextInput
-              label="Nombre de usuario"
+              label="Usuario"
               value={usuario}
               mode="outlined"
               onChangeText={(usuario) => setUsuario(usuario)}
@@ -402,7 +424,7 @@ export default function Testing() {
               value={ciudadConsulta}
               mode="outlined"
               onChangeText={setCiudadConsulta}
-              right={<TextInput.Icon icon="map-marker" />}
+              right={<TextInput.Icon icon="map-marker" onPress={async () => await consultarDatosMeteorologicosUbicacion()} />}
             />
 
             {ciudadConsulta.length > 1 && sugerenciasCiudades.length > 0 && (
@@ -413,17 +435,17 @@ export default function Testing() {
                 }}
               >
                 <Card.Content>
-                  {sugerenciasCiudades.map((ciudad: any, index) => (
+                  {sugerenciasCiudades.map((ciudad, index) => (
                     <Button
                       key={index}
                       onPress={async () => {
-                        setCiudadConsulta(ciudad.name);
+                        setCiudadConsulta(`${ciudad.ciudad}, ${ciudad.nombreRegion}, ${ciudad.nombrePais}`);
                         setSugerenciasCiudades([]);
                       }}
                       style={{ alignItems: "flex-start" }}
                       contentStyle={{ justifyContent: "flex-start" }}
                     >
-                      {ciudad.name}
+                      {ciudad.ciudad}, {ciudad.nombreRegion}, {ciudad.nombrePais}
                     </Button>
                   ))}
                 </Card.Content>
@@ -432,7 +454,7 @@ export default function Testing() {
 
             <Button
               style={{ marginTop: 15 }}
-              onPress={async () => consultarDatosMeteorologicos()}
+              onPress={async () => consultarDatosMeteorologicosNombre()}
               icon={"weather-cloudy-clock"}
               mode="contained"
             >
