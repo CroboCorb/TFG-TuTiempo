@@ -200,7 +200,10 @@ export default function Ciudades() {
           onChangeText={setCiudadConsulta}
           right={
             recogiendoDatosCiudad ? (
-              <ActivityIndicator animating={true}/>
+              <TextInput.Icon
+                icon="timer-sand"
+                onPress={async () => agregarNuevaCiudad()}
+              />
             ) : (
               <TextInput.Icon
                 icon="send"

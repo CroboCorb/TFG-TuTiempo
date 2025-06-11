@@ -459,15 +459,8 @@ export default function PantallaCiudad({
                 <Text style={{ fontWeight: "bold" }}>
                   Presión:{" "}
                   <Text>
-                    {/* {configuracion.unidadMedidaPresion === "mb"
-                      ? infoMeteorologia.clima_actual.presion_mb + " mb"
-                      : infoMeteorologia.clima_actual.presion_in + " in"} */}
                     {climaActualPresion}
                   </Text>
-                </Text>
-                <Text style={{ fontWeight: "bold" }}>
-                  Hora local:{" "}
-                  <Text>{infoMeteorologia.hora_local.split(" ")[1]}</Text>
                 </Text>
               </Card.Content>
             </Card>
